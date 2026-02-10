@@ -1,0 +1,41 @@
+name: armament-ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  dotnet-and-unity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Dotnet format
+        run: |
+          dotnet format shared-sim/Armament.SharedSim.sln --verify-no-changes
+          dotnet format server-dotnet/Armament.Server.sln --verify-no-changes
+
+      - name: Shared deterministic sim tests
+        run: |
+          dotnet run --project shared-sim/Tests/SharedSim.Tests/Armament.SharedSim.Tests.csproj
+
+      - name: Authoritative server smoke tests
+        run: |
+          dotnet run --project server-dotnet/Tests/GameServer.Tests/Armament.GameServer.Tests.csproj
+
+      - name: Persistence integration tests (Testcontainers)
+        run: |
+          dotnet run --project server-dotnet/Tests/Persistence.Tests/Armament.Persistence.Tests.csproj
+
+      - name: Unity PlayMode/EditMode (requires Unity license and editor)
+        if: ${{ false }}
+        run: |
+          echo "Configure UNITY_PATH and license secrets to enable Unity batch tests in CI."

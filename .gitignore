@@ -1,0 +1,26 @@
+# Unity
+/client-unity/Library/
+/client-unity/Temp/
+/client-unity/Obj/
+/client-unity/Logs/
+/client-unity/UserSettings/
+/client-unity/MemoryCaptures/
+/client-unity/Builds/
+
+# Existing root Unity generated folders (legacy before Phase 0 restructure)
+/Library/
+/Temp/
+/Logs/
+/UserSettings/
+
+# .NET
+**/bin/
+**/obj/
+.artifacts/
+.dotnet_home/
+.legacy-root-artifacts/
+
+# IDE
+.vscode/
+*.user
+*.suo
