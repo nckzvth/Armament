@@ -100,6 +100,11 @@ namespace Armament.Persistence.Migrations
                     b.Property<int>("Alacrity")
                         .HasColumnType("integer");
 
+                    b.Property<string>("BaseClassId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<int>("Constitution")
                         .HasColumnType("integer");
 
@@ -147,6 +152,11 @@ namespace Armament.Persistence.Migrations
                     b.Property<string>("QuestProgressJson")
                         .IsRequired()
                         .HasColumnType("jsonb");
+
+                    b.Property<string>("SpecId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("UpdatedUtc")
                         .HasColumnType("timestamp with time zone");

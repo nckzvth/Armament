@@ -43,6 +43,11 @@
   - cooldown validation
   - enemy AI and damage resolution
   - loot spawn + pickup outcome
+- Ability profile resolution is per character (not server-global):
+  - join payload carries `BaseClassId` + `SpecId`
+  - persistence stores class/spec per account slot
+  - server resolves the active `SimAbilityProfile` per entity at runtime
+  - dungeon/overworld transfers keep the same resolved profile id
 
 ## Determinism Scope
 
@@ -85,3 +90,13 @@ Before MMO-scale expansion:
 3. packet authentication/signing
 4. per-IP and per-session rate limiting
 5. abuse-safe handshake hardening
+
+## Class System Development Track
+
+- Canonical contract and staged plan live in `/Users/nckzvth/Projects/Armament/docs/classes`.
+- Development sequence is explicit:
+  1. schema + validators
+  2. deterministic AbilityRunner parity migration
+  3. first anchor spec
+  4. capability-driven expansion
+- This prevents class drift and avoids spec-specific hardcoded combat paths.

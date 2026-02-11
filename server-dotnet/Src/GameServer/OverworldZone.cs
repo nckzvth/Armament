@@ -14,16 +14,28 @@ public sealed class OverworldZone
     private readonly OverworldSimRules _simRules;
     private readonly CharacterStatTuning _statTuning;
     private readonly List<SimLootGrantEvent> _lastLootGrantEvents = new();
+    private readonly string _fallbackAbilityProfileId;
 
     private uint _nextEntityId = 1;
     private bool _enemySpawned;
     private bool _testLootSpawned;
 
-    public OverworldZone(int simulationHz)
+    public OverworldZone(int simulationHz, IReadOnlyDictionary<string, SimAbilityProfile>? abilityProfiles = null, string? fallbackAbilityProfileId = null)
     {
         _simRules = OverworldSimRules.Default;
         _simRules.SimulationHz = simulationHz;
         _statTuning = CharacterStatTuning.Default;
+        _simState.RegisterAbilityProfile(SimAbilityProfiles.BuiltinV1);
+        if (abilityProfiles is not null)
+        {
+            foreach (var profile in abilityProfiles.Values)
+            {
+                _simState.RegisterAbilityProfile(profile);
+            }
+        }
+
+        _fallbackAbilityProfileId = ResolveAbilityProfileId(fallbackAbilityProfileId);
+        _simState.DefaultAbilityProfileId = _fallbackAbilityProfileId;
     }
 
     public int PlayerCount => _entityByClient.Count;
@@ -31,7 +43,7 @@ public sealed class OverworldZone
     public uint InstanceId => 0;
     public IReadOnlyList<SimLootGrantEvent> LastLootGrantEvents => _lastLootGrantEvents;
 
-    public uint Join(uint clientId, string name)
+    public uint Join(uint clientId, string name, string? abilityProfileId = null)
     {
         if (_entityByClient.TryGetValue(clientId, out var existingEntityId))
         {
@@ -60,7 +72,8 @@ public sealed class OverworldZone
             Kind = EntityKind.Player,
             PositionXMilli = spawnOffsetMilli,
             PositionYMilli = 0,
-            Health = 100
+            Health = 100,
+            AbilityProfileId = ResolveAbilityProfileId(abilityProfileId)
         };
         entity.Character.CharacterId = clientId;
         entity.Character.Attributes = CharacterAttributes.Default;
@@ -87,6 +100,7 @@ public sealed class OverworldZone
         };
 
         ApplyTransferState(entity, transferState);
+        entity.AbilityProfileId = ResolveAbilityProfileId(transferState.AbilityProfileId);
         _simState.UpsertEntity(entity);
         _entityByClient[clientId] = entityId;
         return entityId;
@@ -182,6 +196,7 @@ public sealed class OverworldZone
         entity.Health = entity.Character.DerivedStats.MaxHealth;
         entity.BuilderResource = 0;
         entity.SpenderResource = entity.Character.DerivedStats.MaxSpenderResource * 1000 / 2;
+        entity.AbilityProfileId = ResolveAbilityProfileId(profile.SpecId);
         return true;
     }
 
@@ -307,7 +322,8 @@ public sealed class OverworldZone
             Currency = entity.Character.Currency,
             Health = entity.Health,
             BuilderResource = entity.BuilderResource,
-            SpenderResource = entity.SpenderResource
+            SpenderResource = entity.SpenderResource,
+            AbilityProfileId = entity.AbilityProfileId
         };
     }
 
@@ -329,6 +345,16 @@ public sealed class OverworldZone
     {
         return value < 0 ? 0 : (value > ushort.MaxValue ? ushort.MaxValue : value);
     }
+
+    private string ResolveAbilityProfileId(string? requestedProfileId)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedProfileId) && _simState.HasAbilityProfile(requestedProfileId))
+        {
+            return requestedProfileId;
+        }
+
+        return _fallbackAbilityProfileId;
+    }
 }
 
 public struct PlayerTransferState
@@ -341,4 +367,5 @@ public struct PlayerTransferState
     public int Health;
     public int BuilderResource;
     public int SpenderResource;
+    public string AbilityProfileId;
 }

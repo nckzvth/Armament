@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Armament.GameServer.Persistence;
 using Armament.Net;
 using Armament.SharedSim.Protocol;
+using Armament.SharedSim.Sim;
 
 namespace Armament.GameServer;
 
@@ -19,6 +20,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly ILootPersistenceSink? _lootPersistenceSink;
     private readonly ICharacterProfileService? _characterProfileService;
+    private readonly LoadedAbilityProfiles _abilityProfiles;
     private readonly Dictionary<string, PendingJoinRequest> _pendingJoinRequests = new();
     private readonly uint _connectionTimeoutTicks;
 
@@ -32,7 +34,8 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         int simulationHz = 60,
         int snapshotHz = 10,
         ILootPersistenceSink? lootPersistenceSink = null,
-        ICharacterProfileService? characterProfileService = null)
+        ICharacterProfileService? characterProfileService = null,
+        LoadedAbilityProfiles? abilityProfiles = null)
     {
         if (simulationHz <= 0)
         {
@@ -45,7 +48,14 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         }
 
         _transport = new UdpServerTransport(port);
-        _overworldZone = new OverworldZone(simulationHz);
+        _abilityProfiles = abilityProfiles ?? new LoadedAbilityProfiles(
+            new Dictionary<string, SimAbilityProfile>(StringComparer.Ordinal)
+            {
+                [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1
+            },
+            SimAbilityProfiles.BuiltinV1.Id,
+            "builtin profile only");
+        _overworldZone = new OverworldZone(simulationHz, _abilityProfiles.BySpecId, _abilityProfiles.FallbackSpecId);
         _lootPersistenceSink = lootPersistenceSink;
         _characterProfileService = characterProfileService;
         SimulationHz = simulationHz;
@@ -181,6 +191,8 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         state.AccountSubject = request.AccountSubject;
         state.AccountDisplayName = request.AccountDisplayName;
         state.CharacterSlot = Math.Clamp(request.CharacterSlot, 0, 7);
+        state.BaseClassId = request.BaseClassId;
+        state.SpecId = request.SpecId;
         state.CharacterId = ComputeStableCharacterId(state.AccountSubject, state.CharacterSlot);
 
         if (state.ZoneKind == ZoneKind.Dungeon && state.DungeonInstanceId != 0 && _dungeonInstances.TryGetValue(state.DungeonInstanceId, out var currentDungeon))
@@ -192,7 +204,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             }
             else
             {
-                state.EntityId = _overworldZone.Join(state.ClientId, request.CharacterName);
+                state.EntityId = _overworldZone.Join(state.ClientId, request.CharacterName, ResolveProfileIdForConnection(state));
             }
 
             state.ZoneKind = ZoneKind.Overworld;
@@ -213,7 +225,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
                     AccountSubject: state.AccountSubject,
                     AccountDisplayName: state.AccountDisplayName,
                     CharacterSlot: state.CharacterSlot,
-                    PreferredCharacterName: request.CharacterName));
+                    PreferredCharacterName: request.CharacterName,
+                    RequestedBaseClassId: state.BaseClassId,
+                    RequestedSpecId: state.SpecId));
 
                 if (queued)
                 {
@@ -269,6 +283,11 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             {
                 state.CharacterName = result.CharacterName;
             }
+            if (result.Profile is not null)
+            {
+                state.BaseClassId = result.Profile.BaseClassId;
+                state.SpecId = result.Profile.SpecId;
+            }
 
             JoinOverworldImmediately(state, pending.Endpoint, result.Profile);
             _pendingJoinRequests.Remove(result.EndpointKey);
@@ -277,7 +296,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
 
     private void JoinOverworldImmediately(ConnectionState state, IPEndPoint endpoint, CharacterProfileData? profile)
     {
-        state.EntityId = _overworldZone.Join(state.ClientId, state.CharacterName);
+        state.EntityId = _overworldZone.Join(state.ClientId, state.CharacterName, ResolveProfileIdForConnection(state));
         if (profile is not null)
         {
             _ = _overworldZone.TryApplyPersistentProfile(state.ClientId, profile);
@@ -319,7 +338,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
 
             EnqueueProfileSave(state, transfer);
             var instanceId = _nextDungeonInstanceId++;
-            var dungeon = new DungeonInstance(instanceId, SimulationHz);
+            var dungeon = new DungeonInstance(instanceId, SimulationHz, _abilityProfiles.BySpecId, _abilityProfiles.FallbackSpecId);
             _dungeonInstances[instanceId] = dungeon;
 
             state.EntityId = dungeon.JoinTransferred(state.ClientId, transfer);
@@ -452,7 +471,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             Level: transfer.Level,
             Experience: transfer.Experience,
             Currency: transfer.Currency,
-            Attributes: transfer.Attributes);
+            Attributes: transfer.Attributes,
+            BaseClassId: state.BaseClassId,
+            SpecId: state.SpecId);
 
         _ = _characterProfileService.TryEnqueueSave(new CharacterProfileSaveRequest(
             CharacterId: state.CharacterId,
@@ -526,6 +547,11 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         return new Guid(guidBytes);
     }
 
+    private string ResolveProfileIdForConnection(ConnectionState state)
+    {
+        return _abilityProfiles.ResolveForSpec(state.SpecId).Id;
+    }
+
     public async ValueTask DisposeAsync()
     {
         _cts.Cancel();
@@ -553,6 +579,8 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         public string AccountSubject { get; set; } = "local:guest";
         public string AccountDisplayName { get; set; } = "Guest";
         public int CharacterSlot { get; set; }
+        public string BaseClassId { get; set; } = "bastion";
+        public string SpecId { get; set; } = "spec.bastion.bulwark";
         public bool Joined { get; set; }
         public uint EntityId { get; set; }
         public uint LastProcessedInputSequence { get; set; }

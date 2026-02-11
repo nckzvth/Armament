@@ -12,10 +12,11 @@ public sealed class DungeonInstance
     private readonly OverworldSimRules _simRules;
     private readonly CharacterStatTuning _statTuning;
     private readonly List<SimLootGrantEvent> _lastLootGrantEvents = new();
+    private readonly string _fallbackAbilityProfileId;
     private uint _nextEntityId = 50_000;
     private bool _bossSpawned;
 
-    public DungeonInstance(uint instanceId, int simulationHz)
+    public DungeonInstance(uint instanceId, int simulationHz, IReadOnlyDictionary<string, SimAbilityProfile>? abilityProfiles = null, string? fallbackAbilityProfileId = null)
     {
         _instanceId = instanceId;
         _simRules = OverworldSimRules.Default;
@@ -23,6 +24,17 @@ public sealed class DungeonInstance
         _simRules.SkillRangeMilli = 3600;
         _simRules.PickupRangeMilli = 1700;
         _statTuning = CharacterStatTuning.Default;
+        _simState.RegisterAbilityProfile(SimAbilityProfiles.BuiltinV1);
+        if (abilityProfiles is not null)
+        {
+            foreach (var profile in abilityProfiles.Values)
+            {
+                _simState.RegisterAbilityProfile(profile);
+            }
+        }
+
+        _fallbackAbilityProfileId = ResolveAbilityProfileId(fallbackAbilityProfileId);
+        _simState.DefaultAbilityProfileId = _fallbackAbilityProfileId;
     }
 
     public uint InstanceId => _instanceId;
@@ -56,6 +68,7 @@ public sealed class DungeonInstance
         entity.Health = transferState.Health > 0 ? transferState.Health : entity.Character.DerivedStats.MaxHealth;
         entity.BuilderResource = transferState.BuilderResource;
         entity.SpenderResource = transferState.SpenderResource;
+        entity.AbilityProfileId = ResolveAbilityProfileId(transferState.AbilityProfileId);
 
         _simState.UpsertEntity(entity);
         _entityByClient[clientId] = entityId;
@@ -79,7 +92,8 @@ public sealed class DungeonInstance
             Currency = entity.Character.Currency,
             Health = entity.Health,
             BuilderResource = entity.BuilderResource,
-            SpenderResource = entity.SpenderResource
+            SpenderResource = entity.SpenderResource,
+            AbilityProfileId = entity.AbilityProfileId
         };
 
         _simState.RemoveEntity(entityId);
@@ -228,5 +242,15 @@ public sealed class DungeonInstance
     private static int ClampUShort(int value)
     {
         return value < 0 ? 0 : (value > ushort.MaxValue ? ushort.MaxValue : value);
+    }
+
+    private string ResolveAbilityProfileId(string? requestedProfileId)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedProfileId) && _simState.HasAbilityProfile(requestedProfileId))
+        {
+            return requestedProfileId;
+        }
+
+        return _fallbackAbilityProfileId;
     }
 }

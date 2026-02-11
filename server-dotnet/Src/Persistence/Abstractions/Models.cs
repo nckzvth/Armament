@@ -5,6 +5,8 @@ public sealed record CharacterAttributesRecord(int Might, int Will, int Alacrity
 public sealed record CharacterContextRecord(
     Guid CharacterId,
     string Name,
+    string BaseClassId,
+    string SpecId,
     int Level,
     long Experience,
     CharacterAttributesRecord Attributes,

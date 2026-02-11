@@ -50,6 +50,8 @@ public sealed class ArmamentDbContext(DbContextOptions<ArmamentDbContext> option
             entity.HasKey(x => x.CharacterId);
             entity.Property(x => x.CharacterId).ValueGeneratedNever();
             entity.Property(x => x.Name).HasMaxLength(64);
+            entity.Property(x => x.BaseClassId).HasMaxLength(32);
+            entity.Property(x => x.SpecId).HasMaxLength(64);
             entity.Property(x => x.GearJson).HasColumnType("jsonb");
             entity.Property(x => x.InventoryJson).HasColumnType("jsonb");
             entity.Property(x => x.LearnedRecipesJson).HasColumnType("jsonb");

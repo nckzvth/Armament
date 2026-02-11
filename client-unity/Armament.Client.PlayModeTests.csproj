@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets/Tests/PlayMode/OverworldConnectionPlayModeTests.cs" />
+    <Compile Include="Assets/Tests/PlayMode/CharacterSlotStorageTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets/Tests/PlayMode/Armament.Client.PlayModeTests.asmdef" />

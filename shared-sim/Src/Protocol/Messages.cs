@@ -72,6 +72,8 @@ public sealed class JoinOverworldRequest : IProtocolMessage
     public string AccountDisplayName { get; set; } = "Guest";
     public int CharacterSlot { get; set; }
     public string CharacterName { get; set; } = string.Empty;
+    public string BaseClassId { get; set; } = "bastion";
+    public string SpecId { get; set; } = "spec.bastion.bulwark";
 }
 
 public sealed class JoinOverworldAccepted : IProtocolMessage

@@ -48,15 +48,19 @@
     <Analyzer Include="/Applications/Unity/Hub/Editor/6000.2.7f2/Unity.app/Contents/Tools/Unity.SourceGenerators/Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets/Scripts/SharedSim/Sim/ClassSpecCatalog.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Determinism/WorldHash.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Determinism/XorShift32.cs" />
     <Compile Include="Assets/Scripts/Networking/StartMenuUi.cs" />
+    <Compile Include="Assets/Scripts/SharedSim/Sim/AbilityProfileCompiler.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Protocol/ProtocolCodec.cs" />
+    <Compile Include="Assets/Scripts/Networking/CharacterSlotStorage.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Protocol/Quantization.cs" />
     <Compile Include="Assets/Scripts/Networking/WorldDebugRenderer.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Sim/OverworldSim.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Protocol/Messages.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Sim/CharacterModel.cs" />
+    <Compile Include="Assets/Scripts/SharedSim/Sim/AbilityRunner.cs" />
     <Compile Include="Assets/Scripts/Networking/DebugHud.cs" />
     <Compile Include="Assets/Scripts/Bootstrap/ClientBootstrap.cs" />
     <Compile Include="Assets/Scripts/Networking/UdpGameClient.cs" />

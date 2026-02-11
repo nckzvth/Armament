@@ -1,0 +1,20 @@
+{
+  "id": "ability.bastion.bulwark.3_eruption_wheel",
+  "specId": "spec.bastion.bulwark",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 10000,
+  "targeting": {
+    "type": "circle",
+    "rangeM": 3.0,
+    "teamFilter": "enemy",
+    "maxTargets": 8,
+    "shape": { "radiusM": 3.0 }
+  },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 15 },
+    { "primitive": "ConsumeStatus", "statusId": "status.bastion.bulwark.fracture" },
+    { "primitive": "DealDamage", "coefficientPermille": 1000, "flat": 0 },
+    { "primitive": "StartCooldown" }
+  ]
+}

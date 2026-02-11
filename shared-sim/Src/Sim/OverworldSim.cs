@@ -29,6 +29,7 @@ public sealed class SimEntityState
     public int HeavyAttackCooldownTicks { get; set; }
     public int EnemyAttackCooldownTicks { get; set; }
     public int[] SkillCooldownTicks { get; } = new int[8];
+    public string AbilityProfileId { get; set; } = SimAbilityProfiles.BuiltinV1.Id;
 }
 
 public sealed class SimLootDrop
@@ -52,15 +53,32 @@ public struct SimLootGrantEvent
 public sealed class OverworldSimState
 {
     private readonly Dictionary<uint, SimEntityState> _entities = new();
+    private readonly Dictionary<string, SimAbilityProfile> _abilityProfiles = new(StringComparer.Ordinal);
     private readonly Dictionary<uint, SimLootDrop> _lootDrops = new();
     private readonly List<SimLootGrantEvent> _lootGrantEvents = new();
     private uint _nextLootId = 1_000_000;
 
     public uint Tick { get; set; }
     public uint Seed { get; set; } = 1;
+    public string DefaultAbilityProfileId { get; set; } = SimAbilityProfiles.BuiltinV1.Id;
+    public IReadOnlyDictionary<string, SimAbilityProfile> AbilityProfiles => _abilityProfiles;
+    public SimAbilityProfile AbilityProfile
+    {
+        get => ResolveAbilityProfile(DefaultAbilityProfileId);
+        set
+        {
+            RegisterAbilityProfile(value);
+            DefaultAbilityProfileId = value.Id;
+        }
+    }
     public IReadOnlyDictionary<uint, SimEntityState> Entities => _entities;
     public IReadOnlyDictionary<uint, SimLootDrop> LootDrops => _lootDrops;
     public IReadOnlyList<SimLootGrantEvent> LootGrantEvents => _lootGrantEvents;
+
+    public OverworldSimState()
+    {
+        RegisterAbilityProfile(SimAbilityProfiles.BuiltinV1);
+    }
 
     public void UpsertEntity(SimEntityState entity)
     {
@@ -75,6 +93,36 @@ public sealed class OverworldSimState
     public bool RemoveEntity(uint entityId)
     {
         return _entities.Remove(entityId);
+    }
+
+    public void RegisterAbilityProfile(SimAbilityProfile profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile.Id))
+        {
+            return;
+        }
+
+        _abilityProfiles[profile.Id] = profile;
+    }
+
+    public bool HasAbilityProfile(string profileId)
+    {
+        return !string.IsNullOrWhiteSpace(profileId) && _abilityProfiles.ContainsKey(profileId);
+    }
+
+    public SimAbilityProfile ResolveAbilityProfile(string? profileId)
+    {
+        if (!string.IsNullOrWhiteSpace(profileId) && _abilityProfiles.TryGetValue(profileId, out var profile))
+        {
+            return profile;
+        }
+
+        if (_abilityProfiles.TryGetValue(DefaultAbilityProfileId, out profile))
+        {
+            return profile;
+        }
+
+        return SimAbilityProfiles.BuiltinV1;
     }
 
     public SimLootDrop SpawnLoot(int xMilli, int yMilli, int currencyAmount, bool autoLoot = true)
@@ -135,6 +183,11 @@ public sealed class OverworldSimState
             values.Add(unchecked((uint)entity.BuilderResource));
             values.Add(unchecked((uint)entity.SpenderResource));
             values.Add(unchecked((uint)entity.Character.Currency));
+            values.Add((uint)entity.AbilityProfileId.Length);
+            for (var i = 0; i < entity.AbilityProfileId.Length; i++)
+            {
+                values.Add(entity.AbilityProfileId[i]);
+            }
         }
 
         var lootIds = new List<uint>(_lootDrops.Keys);
@@ -194,6 +247,8 @@ public struct OverworldSimRules
 
 public static class OverworldSimulator
 {
+    public static string GetActiveAbilityProfileId(OverworldSimState state) => state.AbilityProfile.Id;
+
     public static void Step(OverworldSimState state, OverworldSimRules rules)
     {
         if (rules.SimulationHz <= 0)
@@ -291,71 +346,7 @@ public static class OverworldSimulator
         // Currency drops auto-loot when in range; click/explicit pickup remains for non-currency loot expansion.
         TryAutoLootCurrency(state, player, rules);
 
-        if (flags.HasFlag(InputActionFlags.FastAttackHold) && player.FastAttackCooldownTicks == 0)
-        {
-            var enemy = FindNearestEnemyInRange(state, player.PositionXMilli, player.PositionYMilli, rules.MeleeRangeMilli);
-            if (enemy is not null)
-            {
-                var damage = player.Character.DerivedStats.BaseMeleeDamage;
-                ApplyDamage(state, enemy, damage, player);
-            }
-
-            player.BuilderResource = Math.Clamp(
-                player.BuilderResource + rules.FastAttackBuilderGain * 1000,
-                0,
-                player.Character.DerivedStats.MaxBuilderResource * 1000);
-
-            player.FastAttackCooldownTicks = ScaleByAttackSpeed(rules.FastAttackBaseCooldownTicks, player.Character.DerivedStats.AttackSpeedPermille, 4);
-        }
-
-        if (flags.HasFlag(InputActionFlags.HeavyAttackHold) && player.HeavyAttackCooldownTicks == 0)
-        {
-            var costMilli = rules.HeavyAttackSpenderCost * 1000;
-            if (player.SpenderResource >= costMilli)
-            {
-                var enemy = FindNearestEnemyInRange(state, player.PositionXMilli, player.PositionYMilli, rules.MeleeRangeMilli + 300);
-                if (enemy is not null)
-                {
-                    var damage = player.Character.DerivedStats.BaseMeleeDamage * 18 / 10;
-                    ApplyDamage(state, enemy, damage, player);
-                }
-
-                player.SpenderResource -= costMilli;
-                player.HeavyAttackCooldownTicks = ScaleByAttackSpeed(rules.HeavyAttackBaseCooldownTicks, player.Character.DerivedStats.AttackSpeedPermille, 8);
-            }
-        }
-
-        ProcessSkillActions(state, player, flags, rules);
-    }
-
-    private static void ProcessSkillActions(OverworldSimState state, SimEntityState player, InputActionFlags flags, OverworldSimRules rules)
-    {
-        for (var i = 0; i < 8; i++)
-        {
-            var mask = (InputActionFlags)(1u << (i + 3));
-            if (!flags.HasFlag(mask) || player.SkillCooldownTicks[i] > 0)
-            {
-                continue;
-            }
-
-            var costMilli = rules.SkillSpenderCost * 1000;
-            if (player.SpenderResource < costMilli)
-            {
-                continue;
-            }
-
-            var enemy = FindNearestEnemyInRange(state, player.PositionXMilli, player.PositionYMilli, rules.SkillRangeMilli);
-            if (enemy is not null)
-            {
-                var potency = player.Character.DerivedStats.SkillPotencyPermille;
-                var damage = (player.Character.DerivedStats.BaseMeleeDamage + 6 + i * 2) * potency / 1000;
-                ApplyDamage(state, enemy, damage, player);
-            }
-
-            player.SpenderResource -= costMilli;
-            var baseCooldown = i < rules.SkillBaseCooldownTicks.Length ? rules.SkillBaseCooldownTicks[i] : 240;
-            player.SkillCooldownTicks[i] = ScaleByAttackSpeed(baseCooldown, player.Character.DerivedStats.AttackSpeedPermille, 20);
-        }
+        AbilityRunner.ExecutePlayerCombatActions(state, player, rules);
     }
 
     private static void ProcessEnemyAi(OverworldSimState state, SimEntityState enemy, OverworldSimRules rules)
@@ -394,7 +385,7 @@ public static class OverworldSimulator
         }
     }
 
-    private static void ApplyDamage(OverworldSimState state, SimEntityState target, int damage, SimEntityState? attacker)
+    internal static void ApplyDamage(OverworldSimState state, SimEntityState target, int damage, SimEntityState? attacker)
     {
         target.Health = Math.Max(0, target.Health - damage);
 
@@ -475,7 +466,7 @@ public static class OverworldSimulator
         }
     }
 
-    private static SimEntityState? FindNearestEnemyInRange(OverworldSimState state, int x, int y, int rangeMilli)
+    internal static SimEntityState? FindNearestEnemyInRange(OverworldSimState state, int x, int y, int rangeMilli)
     {
         SimEntityState? nearest = null;
         long nearestDistSq = long.MaxValue;
@@ -526,7 +517,7 @@ public static class OverworldSimulator
         return nearest;
     }
 
-    private static int ScaleByAttackSpeed(int baseTicks, int attackSpeedPermille, int minimumTicks)
+    internal static int ScaleByAttackSpeed(int baseTicks, int attackSpeedPermille, int minimumTicks)
     {
         var scaled = baseTicks * 1000 / Math.Max(500, attackSpeedPermille);
         return Math.Max(minimumTicks, scaled);

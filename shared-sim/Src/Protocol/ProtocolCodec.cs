@@ -28,6 +28,8 @@ public static class ProtocolCodec
                 writer.Write(join.AccountDisplayName);
                 writer.Write(join.CharacterSlot);
                 writer.Write(join.CharacterName);
+                writer.Write(join.BaseClassId);
+                writer.Write(join.SpecId);
                 break;
             case JoinOverworldAccepted accepted:
                 writer.Write(accepted.EntityId);
@@ -185,12 +187,28 @@ public static class ProtocolCodec
         var second = reader.ReadString();
         var slot = reader.ReadInt32();
         var name = reader.ReadString();
+        var remainingBytesV3 = reader.BaseStream.Length - reader.BaseStream.Position;
+        if (remainingBytesV3 <= 0)
+        {
+            return new JoinOverworldRequest
+            {
+                AccountSubject = first,
+                AccountDisplayName = second,
+                CharacterSlot = slot,
+                CharacterName = name
+            };
+        }
+
+        var baseClassId = reader.ReadString();
+        var specId = reader.ReadString();
         return new JoinOverworldRequest
         {
             AccountSubject = first,
             AccountDisplayName = second,
             CharacterSlot = slot,
-            CharacterName = name
+            CharacterName = name,
+            BaseClassId = baseClassId,
+            SpecId = specId
         };
     }
 }

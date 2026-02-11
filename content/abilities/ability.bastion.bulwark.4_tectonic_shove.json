@@ -1,0 +1,19 @@
+{
+  "id": "ability.bastion.bulwark.4_tectonic_shove",
+  "specId": "spec.bastion.bulwark",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 11000,
+  "targeting": {
+    "type": "cone",
+    "rangeM": 3.0,
+    "teamFilter": "enemy",
+    "maxTargets": 8,
+    "shape": { "angleDeg": 70.0, "lengthM": 3.0 }
+  },
+  "effects": [
+    { "primitive": "ApplyDisplacement" },
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.bulwark.fracture" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -34,6 +34,8 @@ for (var i = 0; i < args.Length; i++)
 }
 
 var dbConnection = Environment.GetEnvironmentVariable("ARMAMENT_DB_CONNECTION");
+var repoRoot = Directory.GetCurrentDirectory();
+var abilityProfiles = ContentAbilityProfileLoader.LoadOrFallback(repoRoot, simulationHz);
 PersistenceBackedLootSink? persistenceBackedLootSink = null;
 PersistenceBackedCharacterProfileService? characterProfileService = null;
 
@@ -54,8 +56,10 @@ await using var server = new AuthoritativeServer(
     simulationHz,
     snapshotHz,
     persistenceBackedLootSink?.Sink,
-    characterProfileService);
+    characterProfileService,
+    abilityProfiles);
 server.Start();
+Console.WriteLine($"[Server] Ability profiles: {abilityProfiles.Message}");
 
 Console.WriteLine("[Server] Press Ctrl+C to stop.");
 

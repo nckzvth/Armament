@@ -26,6 +26,8 @@ public sealed class CharacterEntity
 {
     public Guid CharacterId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string BaseClassId { get; set; } = "bastion";
+    public string SpecId { get; set; } = "spec.bastion.bulwark";
     public int Level { get; set; }
     public long Experience { get; set; }
 

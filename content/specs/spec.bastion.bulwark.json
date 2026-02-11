@@ -1,0 +1,21 @@
+{
+  "id": "spec.bastion.bulwark",
+  "classId": "bastion",
+  "name": "Bulwark",
+  "role": "Tank",
+  "resourceId": "resource.bastion.bulwark.heat",
+  "canonicalStatusId": "status.bastion.bulwark.fracture",
+  "slots": {
+    "lmb": "ability.bastion.bulwark.lmb_shieldpress",
+    "rmb": "ability.bastion.bulwark.rmb_basalt_breaker",
+    "shift": "ability.bastion.bulwark.shift_guard",
+    "e": "ability.bastion.bulwark.e_magma_plating",
+    "r": "ability.bastion.bulwark.r_guard_counter",
+    "q": "ability.bastion.bulwark.q_caldera_event",
+    "t": "ability.bastion.bulwark.t_fissure_step",
+    "1": "ability.bastion.bulwark.1_cinder_command",
+    "2": "ability.bastion.bulwark.2_lava_bulwark",
+    "3": "ability.bastion.bulwark.3_eruption_wheel",
+    "4": "ability.bastion.bulwark.4_tectonic_shove"
+  }
+}

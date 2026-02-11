@@ -1,0 +1,18 @@
+{
+  "id": "ability.bastion.bulwark.2_lava_bulwark",
+  "specId": "spec.bastion.bulwark",
+  "slot": "2",
+  "inputBehavior": "tap",
+  "cooldownMs": 16000,
+  "targeting": {
+    "type": "point",
+    "rangeM": 6.0,
+    "teamFilter": "any",
+    "maxTargets": 1
+  },
+  "effects": [
+    { "primitive": "SpendResource" },
+    { "primitive": "SpawnZone", "zoneDefId": "zone.bastion.bulwark.fissure" },
+    { "primitive": "StartCooldown" }
+  ]
+}

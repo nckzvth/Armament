@@ -1,0 +1,46 @@
+name: Spec Implementation
+description: Track one class spec implementation through data + tests.
+title: "[Spec] "
+labels: ["class-system", "spec"]
+body:
+  - type: input
+    id: spec_id
+    attributes:
+      label: Spec ID
+      placeholder: "spec.bastion.bulwark"
+    validations:
+      required: true
+  - type: textarea
+    id: loadout
+    attributes:
+      label: Slot loadout
+      description: Provide IDs for lmb/rmb/shift/e/r/q/t/1/2/3/4
+      placeholder: "lmb: ability...\nrmb: ability...\ne: ability..."
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Capability dependencies
+      description: Which matrix capabilities are required and status of each.
+      placeholder: "Z ready, P ready, Th in progress..."
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests required
+      description: Acceptance tests + golden loop assertions.
+      placeholder: "5 acceptance tests + 1 golden 10-12s loop test."
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Completion checklist
+      options:
+        - label: Spec doc added under docs/classes/specs
+        - label: Content IDs and docs IDs match
+        - label: Validation passes
+        - label: Determinism tests pass
+        - label: verify.sh passes

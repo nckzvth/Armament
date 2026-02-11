@@ -1,0 +1,20 @@
+{
+  "id": "ability.bastion.bulwark.t_fissure_step",
+  "specId": "spec.bastion.bulwark",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 8000,
+  "targeting": {
+    "type": "line",
+    "rangeM": 4.0,
+    "teamFilter": "enemy",
+    "maxTargets": 6,
+    "shape": { "lengthM": 4.0, "widthM": 1.0 }
+  },
+  "effects": [
+    { "primitive": "ApplyDisplacement" },
+    { "primitive": "SpawnZone", "zoneDefId": "zone.bastion.bulwark.fissure" },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -8,7 +8,9 @@ public sealed record CharacterProfileLoadRequest(
     string AccountSubject,
     string AccountDisplayName,
     int CharacterSlot,
-    string PreferredCharacterName);
+    string PreferredCharacterName,
+    string RequestedBaseClassId,
+    string RequestedSpecId);
 
 public sealed record CharacterProfileSaveRequest(
     Guid CharacterId,
@@ -19,7 +21,9 @@ public sealed record CharacterProfileData(
     int Level,
     uint Experience,
     int Currency,
-    CharacterAttributes Attributes);
+    CharacterAttributes Attributes,
+    string BaseClassId,
+    string SpecId);
 
 public sealed record CharacterProfileLoadResult(
     string EndpointKey,

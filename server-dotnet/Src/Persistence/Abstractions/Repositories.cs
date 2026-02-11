@@ -8,7 +8,16 @@ public interface ICharacterRepository
     Task CreateAsync(CharacterContextRecord character, CancellationToken cancellationToken);
     Task<CharacterContextRecord?> GetAsync(Guid characterId, CancellationToken cancellationToken);
     Task UpdateProgressionAsync(Guid characterId, int level, long experience, int currency, CancellationToken cancellationToken);
-    Task UpsertProfileAsync(Guid characterId, string name, int level, long experience, int currency, CharacterAttributesRecord attributes, CancellationToken cancellationToken);
+    Task UpsertProfileAsync(
+        Guid characterId,
+        string name,
+        string baseClassId,
+        string specId,
+        int level,
+        long experience,
+        int currency,
+        CharacterAttributesRecord attributes,
+        CancellationToken cancellationToken);
 }
 
 public interface IInventoryRepository

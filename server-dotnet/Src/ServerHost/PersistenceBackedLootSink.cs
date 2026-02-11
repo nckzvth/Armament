@@ -46,6 +46,8 @@ public sealed class PersistenceBackedLootSink : IAsyncDisposable
             var character = new CharacterContextRecord(
                 CharacterId: request.CharacterId,
                 Name: request.CharacterName,
+                BaseClassId: "bastion",
+                SpecId: "spec.bastion.bulwark",
                 Level: 1,
                 Experience: 0,
                 Attributes: new CharacterAttributesRecord(

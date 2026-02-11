@@ -1,0 +1,14 @@
+{
+  "id": "ability.bastion.bulwark.e_magma_plating",
+  "specId": "spec.bastion.bulwark",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "cooldownMs": 12000,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpendResource" },
+    { "primitive": "ApplyShield" },
+    { "primitive": "ApplyDR" },
+    { "primitive": "StartCooldown" }
+  ]
+}

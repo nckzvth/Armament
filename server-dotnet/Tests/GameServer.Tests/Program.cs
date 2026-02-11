@@ -352,7 +352,9 @@ async Task ProfileLoadAssertionsAsync()
         Level: 4,
         Experience: 120,
         Currency: 99,
-        Attributes: new CharacterAttributes { Might = 12, Will = 8, Alacrity = 11, Constitution = 10 }));
+        Attributes: new CharacterAttributes { Might = 12, Will = 8, Alacrity = 11, Constitution = 10 },
+        BaseClassId: "bastion",
+        SpecId: "spec.bastion.bulwark"));
 
     await using var profileServer = new AuthoritativeServer(
         port: 19101,
@@ -507,7 +509,7 @@ sealed class TrackingProfileService : ICharacterProfileService
             request.EndpointKey,
             new Guid(idBytes),
             request.PreferredCharacterName,
-            new CharacterProfileData(1, 0, 0, CharacterAttributes.Default)));
+            new CharacterProfileData(1, 0, 0, CharacterAttributes.Default, "bastion", "spec.bastion.bulwark")));
         return true;
     }
 

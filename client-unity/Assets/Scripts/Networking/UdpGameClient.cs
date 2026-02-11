@@ -22,6 +22,8 @@ public sealed class UdpGameClient : MonoBehaviour
     [SerializeField] private string accountDisplayName = "DevAccount";
     [SerializeField] private int characterSlot;
     [SerializeField] private string characterName = "Player";
+    [SerializeField] private string baseClassId = "bastion";
+    [SerializeField] private string specId = "spec.bastion.bulwark";
     [SerializeField] private bool connectOnStart = true;
 
     private const int SimulationHz = 60;
@@ -74,12 +76,15 @@ public sealed class UdpGameClient : MonoBehaviour
     public ushort LocalBuilderResource { get; private set; }
     public ushort LocalSpenderResource { get; private set; }
     public ushort LocalCurrency { get; private set; }
+    public InputActionFlags LocalActionFlags { get; private set; }
     public bool ShowLootNames { get; private set; }
     public ZoneKind CurrentZone { get; private set; } = ZoneKind.Overworld;
     public uint CurrentInstanceId => currentInstanceId;
     public string AccountSubject => accountSubject;
     public string AccountDisplayName => accountDisplayName;
     public int CharacterSlot => characterSlot;
+    public string BaseClassId => baseClassId;
+    public string SpecId => specId;
     public bool IsConnected => udpClient is not null;
     public bool IsJoined => joined;
 
@@ -89,7 +94,15 @@ public sealed class UdpGameClient : MonoBehaviour
         moveSpeedMilliPerSecond = derived.MoveSpeedMilliPerSecond;
     }
 
-    public void Configure(string serverHost, int serverPort, string name, string? subject = null, int slot = 0, string? displayName = null)
+    public void Configure(
+        string serverHost,
+        int serverPort,
+        string name,
+        string? subject = null,
+        int slot = 0,
+        string? displayName = null,
+        string? requestedBaseClassId = null,
+        string? requestedSpecId = null)
     {
         host = serverHost;
         port = serverPort;
@@ -105,6 +118,15 @@ public sealed class UdpGameClient : MonoBehaviour
         }
 
         characterSlot = Mathf.Clamp(slot, 0, 7);
+        if (!string.IsNullOrWhiteSpace(requestedBaseClassId))
+        {
+            baseClassId = requestedBaseClassId.Trim().ToLowerInvariant();
+        }
+
+        if (!string.IsNullOrWhiteSpace(requestedSpecId))
+        {
+            specId = requestedSpecId.Trim();
+        }
     }
 
     public void SetAutoConnect(bool enabled)
@@ -134,6 +156,25 @@ public sealed class UdpGameClient : MonoBehaviour
         _ = ReceiveLoopAsync(cts.Token);
 
         await SendAsync(new ClientHello { ClientNonce = (uint)RandomNumberGenerator.GetInt32(1, int.MaxValue) });
+    }
+
+    public Task DisconnectAsync()
+    {
+        SendDisconnectBestEffort();
+
+        if (cts is not null)
+        {
+            cts.Cancel();
+            cts.Dispose();
+            cts = null;
+        }
+
+        udpClient?.Dispose();
+        udpClient = null;
+        serverEndpoint = null;
+
+        ResetSessionState();
+        return Task.CompletedTask;
     }
 
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
@@ -273,6 +314,7 @@ public sealed class UdpGameClient : MonoBehaviour
             MoveY = quantizedY,
             ActionFlags = actionFlags
         });
+        LocalActionFlags = actionFlags;
     }
 
     private void ApplySnapshot(WorldSnapshot snapshot)
@@ -692,10 +734,7 @@ public sealed class UdpGameClient : MonoBehaviour
 
     private void OnDestroy()
     {
-        SendDisconnectBestEffort();
-        cts?.Cancel();
-        udpClient?.Dispose();
-        cts?.Dispose();
+        _ = DisconnectAsync();
     }
 
     private void SendDisconnectBestEffort()
@@ -722,7 +761,9 @@ public sealed class UdpGameClient : MonoBehaviour
             AccountSubject = string.IsNullOrWhiteSpace(accountSubject) ? "local:guest" : accountSubject.Trim(),
             AccountDisplayName = string.IsNullOrWhiteSpace(accountDisplayName) ? "Guest" : accountDisplayName.Trim(),
             CharacterSlot = Mathf.Clamp(characterSlot, 0, 7),
-            CharacterName = characterName
+            CharacterName = characterName,
+            BaseClassId = string.IsNullOrWhiteSpace(baseClassId) ? "bastion" : baseClassId.Trim().ToLowerInvariant(),
+            SpecId = string.IsNullOrWhiteSpace(specId) ? "spec.bastion.bulwark" : specId.Trim()
         };
     }
 
@@ -739,5 +780,42 @@ public sealed class UdpGameClient : MonoBehaviour
         public uint ServerTick;
         public float ReceivedAtSeconds;
         public Vector2 Position;
+    }
+
+    private void ResetSessionState()
+    {
+        inbox.Clear();
+        latestEntities.Clear();
+        renderEntities.Clear();
+        latestEntityKinds.Clear();
+        lootCurrencyById.Clear();
+        remoteEntitySamples.Clear();
+        pendingInputs.Clear();
+        entityCleanupBuffer.Clear();
+        pendingLootHideUntilSeconds.Clear();
+
+        localEntityId = 0;
+        currentInstanceId = 0;
+        inputSequence = 0;
+        pickupIntentTicksRemaining = 0;
+        pickupPressedBuffered = false;
+        interactPressedBufferedForZone = false;
+        interactPressedBufferedForSim = false;
+        returnHomePressedBuffered = false;
+        lootNamesToggleBuffered = false;
+        joined = false;
+        localClientTick = 0;
+        localTickAccumulator = 0f;
+        hasLocalPredictionState = false;
+        predictedLocalXMilli = 0;
+        predictedLocalYMilli = 0;
+        HasReceivedSnapshot = false;
+        ShowLootNames = false;
+        CurrentZone = ZoneKind.Overworld;
+        LocalActionFlags = InputActionFlags.None;
+        LocalHealth = 0;
+        LocalBuilderResource = 0;
+        LocalSpenderResource = 0;
+        LocalCurrency = 0;
     }
 }

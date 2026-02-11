@@ -108,6 +108,8 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
         var preferredName = string.IsNullOrWhiteSpace(request.PreferredCharacterName)
             ? $"Character {slot + 1}"
             : request.PreferredCharacterName.Trim();
+        var baseClassId = ClassSpecCatalog.NormalizeBaseClass(request.RequestedBaseClassId);
+        var specId = ClassSpecCatalog.NormalizeSpecForClass(baseClassId, request.RequestedSpecId);
 
         var characterId = slotRecord?.CharacterId ?? ComputeStableCharacterId(account.ExternalSubject, slot);
         var characterName = slotRecord?.CharacterName ?? preferredName;
@@ -133,13 +135,17 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
                         Will = existing.Attributes.Will,
                         Alacrity = existing.Attributes.Alacrity,
                         Constitution = existing.Attributes.Constitution
-                    }));
+                    },
+                    BaseClassId: existing.BaseClassId,
+                    SpecId: existing.SpecId));
         }
 
         var derived = CharacterMath.ComputeDerived(CharacterAttributes.Default, CharacterStatTuning.Default);
         var created = new CharacterContextRecord(
             CharacterId: characterId,
             Name: characterName,
+            BaseClassId: baseClassId,
+            SpecId: specId,
             Level: 1,
             Experience: 0,
             Attributes: new CharacterAttributesRecord(
@@ -169,7 +175,7 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
         var loaded = await characters.GetAsync(characterId, cancellationToken);
         if (loaded is null)
         {
-            return new ResolvedCharacterLoad(characterId, characterName, new CharacterProfileData(1, 0, 0, CharacterAttributes.Default));
+            return new ResolvedCharacterLoad(characterId, characterName, new CharacterProfileData(1, 0, 0, CharacterAttributes.Default, baseClassId, specId));
         }
 
         return new ResolvedCharacterLoad(
@@ -185,7 +191,9 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
                     Will = loaded.Attributes.Will,
                     Alacrity = loaded.Attributes.Alacrity,
                     Constitution = loaded.Attributes.Constitution
-                }));
+                },
+                BaseClassId: loaded.BaseClassId,
+                SpecId: loaded.SpecId));
     }
 
     private async Task SaveProfileAsync(CharacterProfileSaveRequest request, CancellationToken cancellationToken)
@@ -196,6 +204,8 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
         await characters.UpsertProfileAsync(
             request.CharacterId,
             request.CharacterName,
+            request.Profile.BaseClassId,
+            request.Profile.SpecId,
             request.Profile.Level,
             request.Profile.Experience,
             request.Profile.Currency,

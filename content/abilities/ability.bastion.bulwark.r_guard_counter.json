@@ -1,0 +1,12 @@
+{
+  "id": "ability.bastion.bulwark.r_guard_counter",
+  "specId": "spec.bastion.bulwark",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 10000,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.bulwark.fracture" },
+    { "primitive": "StartCooldown" }
+  ]
+}

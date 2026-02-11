@@ -27,6 +27,10 @@ jobs:
         run: |
           dotnet run --project shared-sim/Tests/SharedSim.Tests/Armament.SharedSim.Tests.csproj
 
+      - name: Class content validation
+        run: |
+          dotnet run --project shared-sim/Tests/ContentValidation.Tests/Armament.ContentValidation.Tests.csproj
+
       - name: Authoritative server smoke tests
         run: |
           dotnet run --project server-dotnet/Tests/GameServer.Tests/Armament.GameServer.Tests.csproj

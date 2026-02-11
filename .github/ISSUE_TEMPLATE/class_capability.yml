@@ -1,0 +1,37 @@
+name: Class Capability
+description: Track implementation of one reusable class capability.
+title: "[Capability] "
+labels: ["class-system", "capability"]
+body:
+  - type: input
+    id: capability_id
+    attributes:
+      label: Capability
+      description: Use one key from the matrix (Z, P, L, Pr, Th, Sh, Cl, He)
+      placeholder: "Z"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe primitive additions and runtime surfaces touched.
+      placeholder: "Add ApplyDisplacement with push/pull modes and clamp rules."
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Required tests
+      description: Determinism and behavior tests required for done.
+      placeholder: "Add displacement clamp determinism test and collision guard test."
+    validations:
+      required: true
+  - type: textarea
+    id: exit_criteria
+    attributes:
+      label: Exit criteria
+      description: Define objective completion criteria.
+      placeholder: "Primitive available in registry, validation passes, one spec uses it."
+    validations:
+      required: true

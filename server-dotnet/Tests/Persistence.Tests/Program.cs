@@ -37,6 +37,8 @@ var characterId = Guid.NewGuid();
 var character = new CharacterContextRecord(
     CharacterId: characterId,
     Name: "PersistenceTester",
+    BaseClassId: "bastion",
+    SpecId: "spec.bastion.bulwark",
     Level: 1,
     Experience: 0,
     Attributes: new CharacterAttributesRecord(10, 10, 10, 10),
@@ -87,6 +89,8 @@ var secondCharacterId = Guid.NewGuid();
 await characters.UpsertProfileAsync(
     secondCharacterId,
     "AltCharacter",
+    "bastion",
+    "spec.bastion.cataclysm",
     level: 3,
     experience: 120,
     currency: 77,

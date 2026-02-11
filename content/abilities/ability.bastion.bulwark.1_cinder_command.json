@@ -1,0 +1,20 @@
+{
+  "id": "ability.bastion.bulwark.1_cinder_command",
+  "specId": "spec.bastion.bulwark",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 14000,
+  "targeting": {
+    "type": "circle",
+    "rangeM": 3.0,
+    "teamFilter": "enemy",
+    "maxTargets": 8,
+    "shape": { "radiusM": 3.0 }
+  },
+  "effects": [
+    { "primitive": "Taunt" },
+    { "primitive": "AddThreat" },
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.bulwark.fracture" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "ability.bastion.bulwark.q_caldera_event",
+  "specId": "spec.bastion.bulwark",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 60000,
+  "targeting": {
+    "type": "point",
+    "rangeM": 8.0,
+    "teamFilter": "any",
+    "maxTargets": 1
+  },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.bastion.bulwark.caldera" },
+    { "primitive": "StartCooldown" }
+  ]
+}

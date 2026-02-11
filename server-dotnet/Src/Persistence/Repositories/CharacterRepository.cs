@@ -14,6 +14,8 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
         {
             CharacterId = character.CharacterId,
             Name = character.Name,
+            BaseClassId = character.BaseClassId,
+            SpecId = character.SpecId,
             Level = character.Level,
             Experience = character.Experience,
             Might = character.Attributes.Might,
@@ -49,6 +51,8 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
         return new CharacterContextRecord(
             entity.CharacterId,
             entity.Name,
+            entity.BaseClassId,
+            entity.SpecId,
             entity.Level,
             entity.Experience,
             new CharacterAttributesRecord(entity.Might, entity.Will, entity.Alacrity, entity.Constitution),
@@ -80,6 +84,8 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
     public async Task UpsertProfileAsync(
         Guid characterId,
         string name,
+        string baseClassId,
+        string specId,
         int level,
         long experience,
         int currency,
@@ -103,6 +109,8 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
             {
                 CharacterId = characterId,
                 Name = name,
+                BaseClassId = baseClassId,
+                SpecId = specId,
                 Level = Math.Clamp(level, 1, ushort.MaxValue),
                 Experience = Math.Max(0, experience),
                 Might = attributes.Might,
@@ -124,6 +132,8 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
         else
         {
             entity.Name = name;
+            entity.BaseClassId = baseClassId;
+            entity.SpecId = specId;
             entity.Level = Math.Clamp(level, 1, ushort.MaxValue);
             entity.Experience = Math.Max(0, experience);
             entity.Might = attributes.Might;

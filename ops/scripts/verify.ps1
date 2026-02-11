@@ -10,6 +10,7 @@ try {
     dotnet format 'server-dotnet/Armament.Server.sln' --verify-no-changes
 
     dotnet run --project 'shared-sim/Tests/SharedSim.Tests/Armament.SharedSim.Tests.csproj'
+    dotnet run --project 'shared-sim/Tests/ContentValidation.Tests/Armament.ContentValidation.Tests.csproj'
     dotnet run --project 'server-dotnet/Tests/GameServer.Tests/Armament.GameServer.Tests.csproj'
     dotnet run --project 'server-dotnet/Tests/Persistence.Tests/Armament.Persistence.Tests.csproj'
 
