@@ -1,0 +1,15 @@
+{
+  "id": "ability.bastion.cataclysm.r_breakline_slam",
+  "specId": "spec.bastion.cataclysm",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 12000,
+  "targeting": { "type": "line", "rangeM": 4.0, "teamFilter": "enemy", "maxTargets": 6, "shape": { "lengthM": 4.0, "widthM": 1.1 } },
+  "effects": [
+    { "primitive": "ApplyDisplacement" },
+    { "primitive": "DealDamage", "coefficientPermille": 1200, "flat": 5 },
+    { "primitive": "SpawnZone", "zoneDefId": "zone.bastion.cataclysm.fissure" },
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.cataclysm.scorched" },
+    { "primitive": "StartCooldown" }
+  ]
+}

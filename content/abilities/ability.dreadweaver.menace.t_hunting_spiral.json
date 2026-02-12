@@ -1,0 +1,13 @@
+{
+  "id": "ability.dreadweaver.menace.t_hunting_spiral",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 6000,
+  "targeting": { "type": "circle", "rangeM": 2.6, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "DealDamage", "coefficientPermille": 1150, "flat": 6 },
+    { "primitive": "GainResource", "amount": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

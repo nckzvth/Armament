@@ -1,0 +1,20 @@
+{
+  "id": "ability.bastion.cataclysm.e_molten_surge",
+  "specId": "spec.bastion.cataclysm",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "cooldownMs": 10000,
+  "targeting": {
+    "type": "cone",
+    "rangeM": 3.3,
+    "teamFilter": "enemy",
+    "maxTargets": 8,
+    "shape": { "angleDeg": 70.0, "lengthM": 3.3 }
+  },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 30 },
+    { "primitive": "DealDamage", "coefficientPermille": 1680, "flat": 6 },
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.cataclysm.scorched" },
+    { "primitive": "StartCooldown" }
+  ]
+}

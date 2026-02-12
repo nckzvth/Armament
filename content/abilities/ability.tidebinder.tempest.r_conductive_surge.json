@@ -1,0 +1,12 @@
+{
+  "id": "ability.tidebinder.tempest.r_conductive_surge",
+  "specId": "spec.tidebinder.tempest",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 7000,
+  "targeting": { "type": "cone", "rangeM": 4.0, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "DealDamage", "coefficientPermille": 1550, "flat": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

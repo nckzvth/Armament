@@ -1,0 +1,12 @@
+{
+  "id": "ability.gunslinger.akimbo.r_aerial_strafe",
+  "specId": "spec.gunslinger.akimbo",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 3800,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ability.tidebinder.tidecaller.r_tidal_wall",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 7000,
+  "targeting": { "type": "line", "rangeM": 4.0, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "DealDamage", "coefficientPermille": 1200, "flat": 4 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

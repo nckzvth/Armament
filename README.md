@@ -36,11 +36,22 @@ Expected startup output includes:
 - `[Server] UDP listening on 0.0.0.0:9000`
 - `[Server] Persistence queue enabled.` (when `ARMAMENT_DB_CONNECTION` is set)
 
+Optional strict spec gate (recommended before validating a new kit):
+
+```bash
+export ARMAMENT_REQUIRED_SPEC_ID='spec.exorcist.inquisitor'
+dotnet run --project /Users/nckzvth/Projects/Armament/server-dotnet/Src/ServerHost/Armament.ServerHost.csproj -- --port 9000 --simulation-hz 60 --snapshot-hz 10
+```
+
+Behavior:
+- server starts only if the required spec is present in loaded ability profiles
+- server fails fast with an explicit error if the spec is missing/uncompiled
+
 ## Play In Unity (Manual Evidence)
 
 1. Open `/Users/nckzvth/Projects/Armament/client-unity` in Unity 6.
 2. Press Play.
-3. Verify the debug HUD appears in top-left (`Armament Phase 3 Debug HUD`).
+3. Verify compact debug HUD appears as a top strip plus bottom-left combat ticker.
 4. Verify HUD shows `Account` and `Slot` for the current character identity.
 4. Verify world entities: local player is green, enemy is red, loot drops are yellow.
 5. Verify controls/outcomes: `WASD` move, hold `LMB` builds builder, hold `RMB` spends spender, hold `Shift` mitigates enemy damage, `E/R/Q/T/1/2/3/4` trigger skills, `Z` sends manual loot pickup intent, gold auto-loots immediately in range, `Option`/`Alt` toggles loot names, `F` interacts with portal/NPC, `H` returns to overworld.
@@ -110,6 +121,10 @@ Run this sequence and verify each stage:
 14. Hold `Shift` while enemy attacks and confirm HP drops slower than without block.
 15. Stop and restart server with the same `ARMAMENT_DB_CONNECTION`, rejoin with same character slot, and confirm previously earned currency persists.
 16. Run `./ops/scripts/verify.sh` and ensure all checks pass.
+17. Create/select a `dreadweaver / spec.dreadweaver.menace` character:
+    - Press `R` near an enemy to create tether (`Tether owner->target` label appears).
+    - Keep enemy in range and confirm periodic HP loss/pull while tether is active.
+    - Press `4` and confirm tether breaks immediately.
 
 UX guardrails implemented:
 - In-game HUD is hidden when not joined (no overlap with login/select/create flows).
@@ -122,7 +137,23 @@ UX guardrails implemented:
 Class/spec note:
 - Selection is persisted per account slot and sent on join.
 - Server resolves ability profile per character at join/transfer.
-- Today only `spec.bastion.bulwark` is content-authored; unauthored specs transparently fall back to the configured server fallback profile.
+- Server now fails fast at startup if any `content/specs/*.json` entry fails runtime profile compilation (no silent partial-load fallback).
+- `ARMAMENT_REQUIRED_SPEC_ID` enforces that a specific spec must be present before server startup succeeds.
+- Verify boot log contains your requested spec in `loaded=[...]` before testing a new kit.
+- Content-authored playable specs:
+  - `spec.bastion.bulwark`
+  - `spec.bastion.cataclysm`
+  - `spec.exorcist.warden` (includes status apply/consume, DR/shield, cleanse, taunt, and CC-slow baseline behavior)
+  - `spec.exorcist.inquisitor` (includes DPS-tuned bound setup/payoff with cleanse utility and stronger burst windows)
+  - `spec.gunslinger.akimbo` (includes fast dual-shot cadence, projectile/hitscan mix, and high-tempo spender windows)
+  - `spec.gunslinger.deadeye` (includes ranged-leaning high-range slot tuning, drafted status apply, DR stance baseline)
+  - `spec.dreadweaver.menace` (includes deterministic tether link create/tick/break behavior on `R` and `4`)
+  - `spec.dreadweaver.deceiver` (includes DPS-tuned tether pressure, smoke-mark consume burst, and link-break finisher)
+  - `spec.tidebinder.tidecaller` (includes authoritative `Heal` primitive and healing zones)
+  - `spec.tidebinder.tempest` (includes DPS vortex/maelstrom zone damage and soaked-consuming burst)
+  - `spec.arbiter.aegis` (includes constellation links, ally-oriented shields/heals/cleanse, and decree zone support)
+  - `spec.arbiter.edict` (includes enemy-oriented links, decreed status consume burst, and lattice/decree damage zones)
+- Unauthored specs transparently fall back to the configured server fallback profile.
 
 ## Class System Track
 
@@ -137,6 +168,24 @@ Class work is now tracked as a staged pipeline-first effort:
 Rule:
 - do not implement full class kits directly in sim loops.
 - implement reusable primitives + AbilityRunner path first, then ship kits incrementally with deterministic tests.
+
+## Animation Folder Layout (Unity)
+
+Place class animation exports under:
+
+- `/Users/nckzvth/Projects/Armament/client-unity/Assets/Art/Characters/<class-id>/Animations/`
+
+Example (Bastion):
+- `/Users/nckzvth/Projects/Armament/client-unity/Assets/Art/Characters/Bastion/Animations/bastion.locomotion`
+- `/Users/nckzvth/Projects/Armament/client-unity/Assets/Art/Characters/Bastion/Animations/bastion.combat`
+
+Importer/runtime pipeline:
+- Editor auto-builds one library per class into `Assets/Resources/Animation/<class-id>.animationlibrary.asset`.
+- Editor auto-builds/updates one map per class into `Assets/Resources/Animation/<class-id>.animationmap.asset`.
+- Runtime local animator loads by authoritative `baseClassId` and uses these assets for loop/cast playback.
+
+Do not place runtime assets in archive folders:
+- any `*.archive` subfolder under class animation roots is excluded from the animation library build.
 
 ## Multi-Character Validation (Account Slots)
 

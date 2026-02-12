@@ -1,0 +1,12 @@
+{
+  "id": "ability.arbiter.aegis.q_firmament_decree",
+  "specId": "spec.arbiter.aegis",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 60000,
+  "targeting": { "type": "point", "rangeM": 8.0, "teamFilter": "any", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.arbiter.aegis.decree" },
+    { "primitive": "StartCooldown" }
+  ]
+}

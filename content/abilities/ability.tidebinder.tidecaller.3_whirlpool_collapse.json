@@ -1,0 +1,15 @@
+{
+  "id": "ability.tidebinder.tidecaller.3_whirlpool_collapse",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "circle", "rangeM": 2.8, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 24 },
+    { "primitive": "ConsumeStatus", "statusId": "status.tidebinder.tidecaller.soaked", "amount": 3 },
+    { "primitive": "DealDamage", "coefficientPermille": 1550, "flat": 8 },
+    { "primitive": "Heal", "coefficientPermille": 1000, "flat": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -8,6 +8,8 @@ namespace Armament.GameServer;
 public sealed class OverworldZone
 {
     public const uint PortalEntityId = 900_001;
+    private const uint ZoneEntityBaseId = 3_000_000;
+    private const uint LinkEntityBaseId = 4_000_000;
 
     private readonly Dictionary<uint, uint> _entityByClient = new();
     private readonly OverworldSimState _simState = new();
@@ -247,7 +249,7 @@ public sealed class OverworldZone
         foreach (var entityId in ids)
         {
             var entity = _simState.Entities[entityId];
-            if (!entity.IsAlive)
+            if (!entity.IsAlive && entity.Kind != EntityKind.Player)
             {
                 continue;
             }
@@ -261,7 +263,27 @@ public sealed class OverworldZone
                 Health = (ushort)ClampUShort(entity.Health),
                 BuilderResource = (ushort)ClampUShort(entity.BuilderResource / 1000),
                 SpenderResource = (ushort)ClampUShort(entity.SpenderResource / 1000),
-                Currency = (ushort)ClampUShort(entity.Character.Currency)
+                Currency = (ushort)ClampUShort(entity.Character.Currency),
+                FastCooldownTicks = ClampByte(entity.FastAttackCooldownTicks),
+                HeavyCooldownTicks = ClampByte(entity.HeavyAttackCooldownTicks),
+                Skill1CooldownTicks = ClampByte(entity.SkillCooldownTicks[0]),
+                Skill2CooldownTicks = ClampByte(entity.SkillCooldownTicks[1]),
+                Skill3CooldownTicks = ClampByte(entity.SkillCooldownTicks[2]),
+                Skill4CooldownTicks = ClampByte(entity.SkillCooldownTicks[3]),
+                Skill5CooldownTicks = ClampByte(entity.SkillCooldownTicks[4]),
+                Skill6CooldownTicks = ClampByte(entity.SkillCooldownTicks[5]),
+                Skill7CooldownTicks = ClampByte(entity.SkillCooldownTicks[6]),
+                Skill8CooldownTicks = ClampByte(entity.SkillCooldownTicks[7]),
+                AggroTargetEntityId = ResolveAggroTarget(entity),
+                AggroThreatValue = ResolveAggroThreat(entity),
+                ForcedTargetTicks = ClampByte(entity.ForcedTargetTicks),
+                DebugPrimaryStatusStacks = ResolvePrimaryStatusStacks(entity),
+                DebugConsumedStatusStacks = ClampByte(entity.DebugLastConsumedStatusStacks),
+                DebugLastCastSlotCode = ClampByte(entity.DebugLastCastSlotCode),
+                DebugLastCastResultCode = ClampByte(entity.DebugLastCastResultCode),
+                DebugLastCastTargetTeamCode = ClampByte(entity.DebugLastCastTargetTeamCode),
+                DebugLastCastAffectedCount = ClampByte(entity.DebugLastCastAffectedCount),
+                DebugLastCastVfxCode = (ushort)ClampUShort(entity.DebugLastCastVfxCode)
             });
         }
 
@@ -284,6 +306,43 @@ public sealed class OverworldZone
                 Currency = (ushort)ClampUShort(loot.CurrencyAmount)
             });
         }
+
+        foreach (var zone in _simState.Zones.Values)
+        {
+            snapshot.Entities.Add(new EntitySnapshot
+            {
+                EntityId = ZoneEntityBaseId + zone.ZoneId,
+                Kind = EntityKind.Zone,
+                QuantizedX = Quantization.QuantizePosition(zone.PositionXMilli / 1000f),
+                QuantizedY = Quantization.QuantizePosition(zone.PositionYMilli / 1000f),
+                Health = (ushort)ClampUShort(zone.RemainingTicks),
+                BuilderResource = (ushort)ClampUShort(zone.RadiusMilli / 100),
+                SpenderResource = ResolveZoneTypeCode(zone.ZoneDefId),
+                Currency = 0
+            });
+        }
+
+        foreach (var link in _simState.Links.Values)
+        {
+            if (!_simState.TryGetEntity(link.OwnerEntityId, out var owner) || !_simState.TryGetEntity(link.TargetEntityId, out var target))
+            {
+                continue;
+            }
+
+            var midX = (owner.PositionXMilli + target.PositionXMilli) / 2;
+            var midY = (owner.PositionYMilli + target.PositionYMilli) / 2;
+            snapshot.Entities.Add(new EntitySnapshot
+            {
+                EntityId = LinkEntityBaseId + link.LinkId,
+                Kind = EntityKind.Link,
+                QuantizedX = Quantization.QuantizePosition(midX / 1000f),
+                QuantizedY = Quantization.QuantizePosition(midY / 1000f),
+                Health = (ushort)ClampUShort(link.RemainingTicks),
+                BuilderResource = (ushort)ClampUShort((int)link.OwnerEntityId),
+                SpenderResource = (ushort)ClampUShort((int)link.TargetEntityId),
+                Currency = 0
+            });
+        }
     }
 
     private void SpawnEnemy()
@@ -295,7 +354,7 @@ public sealed class OverworldZone
             Kind = EntityKind.Enemy,
             PositionXMilli = 4_000,
             PositionYMilli = 0,
-            Health = 120
+            Health = 360
         };
 
         enemy.Character.Attributes = new CharacterAttributes
@@ -306,7 +365,7 @@ public sealed class OverworldZone
             Constitution = 8
         };
         enemy.Character.RecalculateDerivedStats(_statTuning);
-        enemy.Health = 120;
+        enemy.Health = 360;
 
         _simState.UpsertEntity(enemy);
     }
@@ -344,6 +403,104 @@ public sealed class OverworldZone
     private static int ClampUShort(int value)
     {
         return value < 0 ? 0 : (value > ushort.MaxValue ? ushort.MaxValue : value);
+    }
+
+    private static byte ClampByte(int value)
+    {
+        if (value < 0)
+        {
+            return 0;
+        }
+
+        return value > byte.MaxValue ? byte.MaxValue : (byte)value;
+    }
+
+    private static ushort ResolveZoneTypeCode(string zoneDefId)
+    {
+        return zoneDefId switch
+        {
+            "zone.exorcist.warden.abjuration_field" => 1,
+            "zone.exorcist.inquisitor.abjuration_field" => 1,
+            "zone.bastion.bulwark.fissure" => 2,
+            "zone.bastion.cataclysm.fissure" => 2,
+            "zone.bastion.bulwark.caldera" => 3,
+            "zone.bastion.cataclysm.caldera" => 3,
+            "zone.tidebinder.tidecaller.soothing_pool" => 4,
+            "zone.tidebinder.tidecaller.maelstrom" => 5,
+            "zone.tidebinder.tempest.vortex_pool" => 6,
+            "zone.tidebinder.tempest.maelstrom" => 7,
+            "zone.arbiter.aegis.seal" => 8,
+            "zone.arbiter.aegis.ward" => 8,
+            "zone.arbiter.edict.seal" => 8,
+            "zone.arbiter.edict.lattice" => 8,
+            "zone.arbiter.aegis.decree" => 9,
+            "zone.arbiter.edict.decree" => 9,
+            _ => 0
+        };
+    }
+
+    private static uint ResolveAggroTarget(SimEntityState entity)
+    {
+        if (entity.Kind != EntityKind.Enemy)
+        {
+            return 0;
+        }
+
+        if (entity.ForcedTargetTicks > 0 && entity.ForcedTargetEntityId != 0)
+        {
+            return entity.ForcedTargetEntityId;
+        }
+
+        var bestThreat = int.MinValue;
+        var bestTarget = 0u;
+        foreach (var kvp in entity.ThreatByPlayerEntityId)
+        {
+            if (kvp.Value > bestThreat)
+            {
+                bestThreat = kvp.Value;
+                bestTarget = kvp.Key;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    private static ushort ResolveAggroThreat(SimEntityState entity)
+    {
+        if (entity.Kind != EntityKind.Enemy || entity.ThreatByPlayerEntityId.Count == 0)
+        {
+            return 0;
+        }
+
+        var bestThreat = 0;
+        foreach (var kvp in entity.ThreatByPlayerEntityId)
+        {
+            if (kvp.Value > bestThreat)
+            {
+                bestThreat = kvp.Value;
+            }
+        }
+
+        return (ushort)Math.Clamp(bestThreat, 0, ushort.MaxValue);
+    }
+
+    private static byte ResolvePrimaryStatusStacks(SimEntityState entity)
+    {
+        var maxStacks = 0;
+        foreach (var status in entity.Statuses.Values)
+        {
+            if (status.Stacks <= 0)
+            {
+                continue;
+            }
+
+            if (status.Stacks > maxStacks)
+            {
+                maxStacks = status.Stacks;
+            }
+        }
+
+        return ClampByte(maxStacks);
     }
 
     private string ResolveAbilityProfileId(string? requestedProfileId)

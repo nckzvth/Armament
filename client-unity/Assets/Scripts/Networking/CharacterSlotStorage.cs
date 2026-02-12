@@ -4,7 +4,8 @@ using System.Collections.Generic;
 using Armament.SharedSim.Sim;
 using UnityEngine;
 
-namespace Armament.Client.Networking;
+namespace Armament.Client.Networking
+{
 
 public static class CharacterSlotStorage
 {
@@ -124,4 +125,5 @@ public static class CharacterSlotStorage
             .Replace("\\", "_")
             .Replace(" ", "_");
     }
+}
 }

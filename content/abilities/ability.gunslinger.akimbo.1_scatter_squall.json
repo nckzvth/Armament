@@ -1,0 +1,13 @@
+{
+  "id": "ability.gunslinger.akimbo.1_scatter_squall",
+  "specId": "spec.gunslinger.akimbo",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 4200,
+  "targeting": { "type": "cone", "rangeM": 6.5, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 6 },
+    { "primitive": "HitscanTrace", "coefficientPermille": 1480, "flat": 5 },
+    { "primitive": "StartCooldown" }
+  ]
+}

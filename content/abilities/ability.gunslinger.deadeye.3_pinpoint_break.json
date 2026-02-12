@@ -1,0 +1,13 @@
+{
+  "id": "ability.gunslinger.deadeye.3_pinpoint_break",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 6500,
+  "targeting": { "type": "unit", "rangeM": 8.8, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 16 },
+    { "primitive": "DealDamage", "coefficientPermille": 2000, "flat": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

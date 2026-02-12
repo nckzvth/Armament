@@ -1,0 +1,21 @@
+{
+  "id": "spec.gunslinger.akimbo",
+  "classId": "gunslinger",
+  "name": "Akimbo",
+  "role": "Dps",
+  "resourceId": "resource.gunslinger.akimbo.slipstream",
+  "canonicalStatusId": "status.gunslinger.akimbo.drafted",
+  "slots": {
+    "lmb": "ability.gunslinger.akimbo.lmb_gale_burst",
+    "rmb": "ability.gunslinger.akimbo.rmb_wind_drill_shot",
+    "shift": "ability.gunslinger.akimbo.shift_brace",
+    "e": "ability.gunslinger.akimbo.e_ricochet_fan",
+    "r": "ability.gunslinger.akimbo.r_aerial_strafe",
+    "q": "ability.gunslinger.akimbo.q_tempest_barrage",
+    "t": "ability.gunslinger.akimbo.t_marking_draft",
+    "1": "ability.gunslinger.akimbo.1_scatter_squall",
+    "2": "ability.gunslinger.akimbo.2_reload_rhythm",
+    "3": "ability.gunslinger.akimbo.3_pinpoint_break",
+    "4": "ability.gunslinger.akimbo.4_gust_grenade"
+  }
+}

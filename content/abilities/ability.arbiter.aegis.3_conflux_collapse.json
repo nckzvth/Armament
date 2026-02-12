@@ -1,0 +1,15 @@
+{
+  "id": "ability.arbiter.aegis.3_conflux_collapse",
+  "specId": "spec.arbiter.aegis",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 18000,
+  "targeting": { "type": "circle", "rangeM": 3.5, "teamFilter": "ally", "maxTargets": 6, "shape": { "radiusM": 3.5 } },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 40 },
+    { "primitive": "ConsumeStatus", "statusId": "status.arbiter.aegis.starbound", "amount": 3 },
+    { "primitive": "Heal", "flat": 16 },
+    { "primitive": "ApplyDR", "amount": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.inquisitor.1_scouring_accusation",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 8000,
+  "targeting": { "type": "line", "rangeM": 4.2, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1500, "flat": 4 },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.inquisitor.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

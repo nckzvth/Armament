@@ -1,0 +1,21 @@
+{
+  "id": "spec.bastion.cataclysm",
+  "classId": "bastion",
+  "name": "Cataclysm",
+  "role": "Dps",
+  "resourceId": "resource.bastion.cataclysm.heat",
+  "canonicalStatusId": "status.bastion.cataclysm.scorched",
+  "slots": {
+    "lmb": "ability.bastion.cataclysm.lmb_shieldpress",
+    "rmb": "ability.bastion.cataclysm.rmb_basalt_breaker",
+    "shift": "ability.bastion.cataclysm.shift_guard",
+    "e": "ability.bastion.cataclysm.e_molten_surge",
+    "r": "ability.bastion.cataclysm.r_breakline_slam",
+    "q": "ability.bastion.cataclysm.q_caldera_rupture",
+    "t": "ability.bastion.cataclysm.t_fissure_step",
+    "1": "ability.bastion.cataclysm.1_shatter_roar",
+    "2": "ability.bastion.cataclysm.2_ember_guard",
+    "3": "ability.bastion.cataclysm.3_eruption_wheel",
+    "4": "ability.bastion.cataclysm.4_magma_line"
+  }
+}

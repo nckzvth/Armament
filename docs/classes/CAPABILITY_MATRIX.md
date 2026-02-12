@@ -29,7 +29,7 @@
 | `spec.gunslinger.akimbo` | DPS | - | - | - | Y | - | - | - | - |
 | `spec.gunslinger.deadeye` | DPS | - | - | - | Y | - | - | - | - |
 | `spec.dreadweaver.menace` | Tank | Y | Y | Y | - | Y | Y | Y | - |
-| `spec.dreadweaver.weaver` | DPS | Y | Y | Y | - | - | Y | - | - |
+| `spec.dreadweaver.deceiver` | DPS | Y | Y | Y | - | - | Y | - | - |
 | `spec.arbiter.aegis` | Healer | Y | Y | Y | - | - | Y | Y | Y |
 | `spec.arbiter.edict` | DPS | Y | Y | Y | - | - | - | - | - |
 
@@ -44,5 +44,6 @@
 ## Current Repo Status
 
 - Foundation exists for authoritative sim, persistence, and deterministic tests.
-- Capability system does not yet exist as a generalized ability/effect content pipeline.
-- Next implementation target: build `AbilityRunner` and primitive execution registry before full kits.
+- `AbilityRunner` profile pipeline is active for authored specs.
+- Implemented capabilities in runtime: `Z`, `P`, `Th`, `Sh`, `Cl`, `Pr`, baseline `L` (deterministic create/tick/break tether), and baseline `He` (authoritative heal primitive + healing zones).
+- Next implementation target: expand `L` beyond baseline and deepen `He` support behavior (ally-prioritized targeting, HoT variants, stronger role telemetry).

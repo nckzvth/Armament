@@ -1,0 +1,13 @@
+{
+  "id": "ability.arbiter.edict.r_orions_grasp",
+  "specId": "spec.arbiter.edict",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 12000,
+  "targeting": { "type": "circle", "rangeM": 7.0, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "CreateLink", "linkDefId": "link.arbiter.edict.constellation_link" },
+    { "primitive": "ApplyStatus", "statusId": "status.arbiter.edict.decreed" },
+    { "primitive": "StartCooldown" }
+  ]
+}

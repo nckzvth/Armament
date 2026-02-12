@@ -1,0 +1,12 @@
+{
+  "id": "ability.arbiter.edict.4_gravity_lattice",
+  "specId": "spec.arbiter.edict",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 20000,
+  "targeting": { "type": "point", "rangeM": 7.0, "teamFilter": "any", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.arbiter.edict.lattice" },
+    { "primitive": "StartCooldown" }
+  ]
+}

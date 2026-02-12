@@ -1,0 +1,14 @@
+{
+  "id": "ability.gunslinger.akimbo.4_gust_grenade",
+  "specId": "spec.gunslinger.akimbo",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 7000,
+  "targeting": { "type": "point", "rangeM": 7.0, "teamFilter": "enemy", "maxTargets": 5 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 14 },
+    { "primitive": "FireProjectile", "coefficientPermille": 1780, "flat": 8 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

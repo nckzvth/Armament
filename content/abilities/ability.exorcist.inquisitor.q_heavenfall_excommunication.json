@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.inquisitor.q_heavenfall_excommunication",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 25000,
+  "targeting": { "type": "circle", "rangeM": 5.8, "teamFilter": "enemy", "maxTargets": 10 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 20 },
+    { "primitive": "DealDamage", "coefficientPermille": 2600, "flat": 14 },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.inquisitor.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

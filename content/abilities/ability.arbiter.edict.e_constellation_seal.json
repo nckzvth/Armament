@@ -1,0 +1,14 @@
+{
+  "id": "ability.arbiter.edict.e_constellation_seal",
+  "specId": "spec.arbiter.edict",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "cooldownMs": 12000,
+  "targeting": { "type": "circle", "rangeM": 4.2, "teamFilter": "enemy", "maxTargets": 8, "shape": { "radiusM": 4.2 } },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 25 },
+    { "primitive": "ApplyStatus", "statusId": "status.arbiter.edict.decreed" },
+    { "primitive": "SpawnZone", "zoneDefId": "zone.arbiter.edict.seal" },
+    { "primitive": "StartCooldown" }
+  ]
+}

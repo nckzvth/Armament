@@ -1,0 +1,21 @@
+{
+  "id": "spec.tidebinder.tempest",
+  "classId": "tidebinder",
+  "name": "Tempest",
+  "role": "Dps",
+  "resourceId": "resource.tidebinder.tempest.flow",
+  "canonicalStatusId": "status.tidebinder.tempest.soaked",
+  "slots": {
+    "lmb": "ability.tidebinder.tempest.lmb_torrent_tap",
+    "rmb": "ability.tidebinder.tempest.rmb_riptide_thrust",
+    "shift": "ability.tidebinder.tempest.shift_guard",
+    "e": "ability.tidebinder.tempest.e_vortex_pool",
+    "r": "ability.tidebinder.tempest.r_conductive_surge",
+    "q": "ability.tidebinder.tempest.q_maelstrom",
+    "t": "ability.tidebinder.tempest.t_slipstream_step",
+    "1": "ability.tidebinder.tempest.1_soaking_deluge",
+    "2": "ability.tidebinder.tempest.2_stormbrand",
+    "3": "ability.tidebinder.tempest.3_whirlpool_collapse",
+    "4": "ability.tidebinder.tempest.4_tidal_lance"
+  }
+}

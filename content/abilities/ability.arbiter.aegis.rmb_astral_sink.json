@@ -1,0 +1,13 @@
+{
+  "id": "ability.arbiter.aegis.rmb_astral_sink",
+  "specId": "spec.arbiter.aegis",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 0,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.6, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1450, "flat": 2 },
+    { "primitive": "ApplyCC" }
+  ]
+}

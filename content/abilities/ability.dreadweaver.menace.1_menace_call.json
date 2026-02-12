@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.menace.1_menace_call",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 10000,
+  "targeting": { "type": "circle", "rangeM": 3.0, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "Taunt" },
+    { "primitive": "AddThreat", "amount": 35 },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.menace.smoke_mark" },
+    { "primitive": "StartCooldown" }
+  ]
+}

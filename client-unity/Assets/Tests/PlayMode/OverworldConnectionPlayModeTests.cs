@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -7,7 +8,8 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Armament.Client.Tests;
+namespace Armament.Client.Tests
+{
 
 public class OverworldConnectionPlayModeTests
 {
@@ -86,4 +88,5 @@ public class OverworldConnectionPlayModeTests
         var stdErr = serverProcess!.StandardError.ReadToEnd();
         Assert.Fail($"Server did not start in time. stderr: {stdErr}");
     }
+}
 }

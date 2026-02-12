@@ -1,0 +1,12 @@
+{
+  "id": "ability.arbiter.aegis.4_firmament_ward",
+  "specId": "spec.arbiter.aegis",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 20000,
+  "targeting": { "type": "point", "rangeM": 7.0, "teamFilter": "any", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.arbiter.aegis.ward" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ability.tidebinder.tempest.4_tidal_lance",
+  "specId": "spec.tidebinder.tempest",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 11000,
+  "targeting": { "type": "line", "rangeM": 5.5, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "HitscanTrace", "coefficientPermille": 1650, "flat": 9 },
+    { "primitive": "ApplyStatus", "statusId": "status.tidebinder.tempest.soaked" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "ability.dreadweaver.menace.e_smoke_step",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "cooldownMs": 5200,
+  "targeting": { "type": "nearest_in_range", "rangeM": 3.4, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 12 },
+    { "primitive": "DealDamage", "coefficientPermille": 1300, "flat": 4 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.menace.smoke_mark" },
+    { "primitive": "StartCooldown" }
+  ]
+}

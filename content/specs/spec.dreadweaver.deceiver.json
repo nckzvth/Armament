@@ -1,0 +1,21 @@
+{
+  "id": "spec.dreadweaver.deceiver",
+  "classId": "dreadweaver",
+  "name": "Deceiver",
+  "role": "Dps",
+  "resourceId": "resource.dreadweaver.deceiver.dread",
+  "canonicalStatusId": "status.dreadweaver.deceiver.smoke_mark",
+  "slots": {
+    "lmb": "ability.dreadweaver.deceiver.lmb_cinder_lash",
+    "rmb": "ability.dreadweaver.deceiver.rmb_reel_cleave",
+    "shift": "ability.dreadweaver.deceiver.shift_guard",
+    "e": "ability.dreadweaver.deceiver.e_smoke_step",
+    "r": "ability.dreadweaver.deceiver.r_chain_snare",
+    "q": "ability.dreadweaver.deceiver.q_black_veil",
+    "t": "ability.dreadweaver.deceiver.t_hunting_spiral",
+    "1": "ability.dreadweaver.deceiver.1_shadow_brand",
+    "2": "ability.dreadweaver.deceiver.2_smoke_cloak",
+    "3": "ability.dreadweaver.deceiver.3_suffocation_pulse",
+    "4": "ability.dreadweaver.deceiver.4_dread_execute"
+  }
+}

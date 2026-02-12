@@ -1,0 +1,15 @@
+{
+  "id": "ability.gunslinger.akimbo.e_ricochet_fan",
+  "specId": "spec.gunslinger.akimbo",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "animTag": "gunslinger.akimbo.e_ricochet_fan",
+  "vfxTag": "vfx.gunslinger.akimbo.ricochet_fan",
+  "cooldownMs": 4200,
+  "targeting": { "type": "cone", "rangeM": 7.8, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "FireProjectile", "coefficientPermille": 1700, "flat": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

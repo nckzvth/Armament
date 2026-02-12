@@ -215,6 +215,50 @@ while (DateTime.UtcNow < dungeonDeadline)
 Assert(dungeonSnapshot is not null, "did not receive dungeon snapshot after join");
 Assert(dungeonSnapshot is not null && dungeonSnapshot.Entities.Exists(x => x.Kind == EntityKind.Enemy), "dungeon snapshot missing tougher encounter enemy");
 
+// Regression: non-LMB skill usage in dungeon must not stall snapshot stream.
+var dungeonTickBeforeSkills = dungeonSnapshot?.ServerTick ?? 0;
+for (var i = 0; i < 16; i++)
+{
+    var action = (i % 4) switch
+    {
+        0 => InputActionFlags.Skill1,
+        1 => InputActionFlags.Skill2,
+        2 => InputActionFlags.Skill5,
+        _ => InputActionFlags.Skill8
+    };
+
+    var skillCmd = new InputCommand
+    {
+        Sequence = (uint)(400 + i),
+        ClientTick = (uint)(400 + i),
+        MoveX = 0,
+        MoveY = 0,
+        ActionFlags = action
+    };
+
+    var payload = ProtocolCodec.Encode(skillCmd);
+    await clientC.SendAsync(payload, payload.Length, endpoint);
+}
+
+WorldSnapshot? postSkillDungeonSnapshot = null;
+var postSkillDeadline = DateTime.UtcNow.AddSeconds(3);
+while (DateTime.UtcNow < postSkillDeadline)
+{
+    var result = await ReceiveWithTimeoutAsync(clientC, TimeSpan.FromMilliseconds(250));
+    if (result is null || !ProtocolCodec.TryDecode(result.Value.Buffer, out var decoded) || decoded is not WorldSnapshot snap)
+    {
+        continue;
+    }
+
+    if (snap.ZoneKind == ZoneKind.Dungeon && snap.ServerTick > dungeonTickBeforeSkills)
+    {
+        postSkillDungeonSnapshot = snap;
+        break;
+    }
+}
+
+Assert(postSkillDungeonSnapshot is not null, "dungeon snapshots stalled after non-LMB skill inputs");
+
 // Explicit disconnect should evict stale entities from the world.
 var disconnectPayload = ProtocolCodec.Encode(new DisconnectRequest());
 await clientB.SendAsync(disconnectPayload, disconnectPayload.Length, endpoint);
@@ -242,6 +286,9 @@ await QueueBackpressureAssertionsAsync();
 await QueueRetryAssertionsAsync();
 await ProfileLoadAssertionsAsync();
 await ProfileSaveEnqueueAssertionsAsync();
+await ProfileSpecRepairAssertionsAsync();
+await ProfileSpecRequestedOverrideAssertionsAsync();
+await LinkReplicationAssertionsAsync();
 
 if (failures.Count > 0)
 {
@@ -307,6 +354,130 @@ async Task QueueBackpressureAssertionsAsync()
     Assert(queue.DroppedCount > 0, "bounded persistence queue did not apply backpressure");
     Assert(accepted > 0, "bounded persistence queue accepted no writes");
     Assert(handled > 0, "bounded persistence queue did not process accepted writes");
+}
+
+async Task LinkReplicationAssertionsAsync()
+{
+    var profile = new SimAbilityProfile { Id = "spec.test.links" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill2] = new SimAbilityDefinition
+    {
+        Id = "ability.test.link_r",
+        Slot = SimAbilitySlot.R,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 30,
+        CooldownMinTicks = 10,
+        RangeMilli = 6000,
+        MaxTargets = 1,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.CreateLink, LinkDefId = "link.dreadweaver.menace.chain_snare" }
+        }
+    };
+
+    var loadedProfiles = new LoadedAbilityProfiles(
+        new Dictionary<string, SimAbilityProfile>(StringComparer.Ordinal)
+        {
+            [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1,
+            [profile.Id] = profile
+        },
+        profile.Id,
+        "test links");
+
+    await using var server = new AuthoritativeServer(port: 19103, simulationHz: 60, snapshotHz: 10, abilityProfiles: loadedProfiles);
+    server.Start();
+
+    using var client = new UdpClient(0);
+    client.Client.ReceiveTimeout = 3000;
+    var endpoint = new IPEndPoint(IPAddress.Loopback, 19103);
+
+    var helloPayload = ProtocolCodec.Encode(new ClientHello { ClientNonce = 11 });
+    await client.SendAsync(helloPayload, helloPayload.Length, endpoint);
+
+    var gotHello = false;
+    var helloDeadline = DateTime.UtcNow.AddSeconds(2);
+    while (DateTime.UtcNow < helloDeadline)
+    {
+        var result = await ReceiveWithTimeoutAsync(client, TimeSpan.FromMilliseconds(250));
+        if (result is null || !ProtocolCodec.TryDecode(result.Value.Buffer, out var decoded))
+        {
+            continue;
+        }
+
+        if (decoded is ServerHello)
+        {
+            gotHello = true;
+            break;
+        }
+    }
+
+    Assert(gotHello, "link replication test did not receive server hello");
+    if (!gotHello)
+    {
+        return;
+    }
+
+    var joinPayload = ProtocolCodec.Encode(new JoinOverworldRequest
+    {
+        CharacterName = "LinkTest",
+        BaseClassId = "dreadweaver",
+        SpecId = profile.Id
+    });
+    await client.SendAsync(joinPayload, joinPayload.Length, endpoint);
+
+    var joined = false;
+    var joinDeadline = DateTime.UtcNow.AddSeconds(2);
+    while (DateTime.UtcNow < joinDeadline)
+    {
+        var result = await ReceiveWithTimeoutAsync(client, TimeSpan.FromMilliseconds(250));
+        if (result is null || !ProtocolCodec.TryDecode(result.Value.Buffer, out var decoded))
+        {
+            continue;
+        }
+
+        if (decoded is JoinOverworldAccepted)
+        {
+            joined = true;
+            break;
+        }
+    }
+
+    Assert(joined, "link replication test could not join overworld");
+    if (!joined)
+    {
+        return;
+    }
+
+    var cmd = new InputCommand
+    {
+        Sequence = 1,
+        ClientTick = 1,
+        MoveX = 0,
+        MoveY = 0,
+        ActionFlags = InputActionFlags.Skill2 // R slot for menace chain snare
+    };
+
+    var cmdPayload = ProtocolCodec.Encode(cmd);
+    await client.SendAsync(cmdPayload, cmdPayload.Length, endpoint);
+
+    var sawLink = false;
+    var snapshotDeadline = DateTime.UtcNow.AddSeconds(3);
+    while (DateTime.UtcNow < snapshotDeadline)
+    {
+        var result = await ReceiveWithTimeoutAsync(client, TimeSpan.FromMilliseconds(250));
+        if (result is null || !ProtocolCodec.TryDecode(result.Value.Buffer, out var decoded) || decoded is not WorldSnapshot snap)
+        {
+            continue;
+        }
+
+        if (snap.Entities.Any(x => x.Kind == EntityKind.Link))
+        {
+            sawLink = true;
+            break;
+        }
+    }
+
+    Assert(sawLink, "menace R cast did not replicate a link entity");
 }
 
 async Task QueueRetryAssertionsAsync()
@@ -443,6 +614,166 @@ async Task ProfileSaveEnqueueAssertionsAsync()
     Assert(trackingService.SaveRequests.Count > 0, "profile save was not enqueued on overworld->dungeon transfer");
 }
 
+async Task ProfileSpecRepairAssertionsAsync()
+{
+    var staleProfileService = new RepairTrackingProfileService(
+        new CharacterProfileData(
+            Level: 7,
+            Experience: 900,
+            Currency: 33,
+            Attributes: new CharacterAttributes { Might = 11, Will = 10, Alacrity = 9, Constitution = 12 },
+            BaseClassId: "arbiter",
+            SpecId: "spec.arbiter.aegis"));
+
+    var menaceProfile = new SimAbilityProfile { Id = "spec.dreadweaver.menace" };
+    menaceProfile.AbilitiesByFlag[InputActionFlags.Skill2] = new SimAbilityDefinition
+    {
+        Id = "ability.test.menace_r",
+        Slot = SimAbilitySlot.R,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 30,
+        CooldownMinTicks = 10,
+        RangeMilli = 6000,
+        MaxTargets = 1,
+        HasDamageEffect = false,
+        Effects = { new SimAbilityEffect { Primitive = SimAbilityPrimitive.CreateLink, LinkDefId = "link.dreadweaver.menace.chain_snare" } }
+    };
+
+    var profiles = new LoadedAbilityProfiles(
+        new Dictionary<string, SimAbilityProfile>(StringComparer.Ordinal)
+        {
+            [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1,
+            [menaceProfile.Id] = menaceProfile
+        },
+        fallbackSpecId: SimAbilityProfiles.BuiltinV1.Id,
+        message: "repair-spec-test");
+
+    await using var profileServer = new AuthoritativeServer(
+        port: 19104,
+        simulationHz: 60,
+        snapshotHz: 10,
+        lootPersistenceSink: null,
+        characterProfileService: staleProfileService,
+        abilityProfiles: profiles);
+    profileServer.Start();
+
+    using var client = new UdpClient(0);
+    client.Client.ReceiveTimeout = 3000;
+    var endpoint = new IPEndPoint(IPAddress.Loopback, 19104);
+
+    _ = await ExchangeForEndpointAsync(client, endpoint, new ClientHello { ClientNonce = 13 });
+    var join = await ExchangeForEndpointAsync(client, endpoint, new JoinOverworldRequest
+    {
+        CharacterName = "RepairCase",
+        BaseClassId = "dreadweaver",
+        SpecId = "spec.dreadweaver.menace"
+    });
+
+    Assert(join is JoinOverworldAccepted, "repair-spec server did not accept join");
+    if (join is JoinOverworldAccepted accepted)
+    {
+        Assert(
+            string.Equals(accepted.SpecId, "spec.dreadweaver.menace", StringComparison.Ordinal),
+            $"join accepted wrong spec after repair path: '{accepted.SpecId}'");
+        Assert(
+            string.Equals(accepted.BaseClassId, "dreadweaver", StringComparison.Ordinal),
+            $"join accepted wrong class after repair path: '{accepted.BaseClassId}'");
+    }
+
+    var deadline = DateTime.UtcNow.AddSeconds(2);
+    while (DateTime.UtcNow < deadline && staleProfileService.SaveRequests.Count == 0)
+    {
+        await Task.Delay(20);
+    }
+
+    Assert(staleProfileService.SaveRequests.Count > 0, "repair path did not enqueue corrected profile save");
+    if (staleProfileService.SaveRequests.Count > 0)
+    {
+        var saved = staleProfileService.SaveRequests[^1].Profile;
+        Assert(
+            string.Equals(saved.SpecId, "spec.dreadweaver.menace", StringComparison.Ordinal),
+            $"repair save wrote wrong spec: '{saved.SpecId}'");
+        Assert(
+            string.Equals(saved.BaseClassId, "dreadweaver", StringComparison.Ordinal),
+            $"repair save wrote wrong class: '{saved.BaseClassId}'");
+    }
+}
+
+async Task ProfileSpecRequestedOverrideAssertionsAsync()
+{
+    var existingProfileService = new RepairTrackingProfileService(
+        new CharacterProfileData(
+            Level: 12,
+            Experience: 1900,
+            Currency: 42,
+            Attributes: new CharacterAttributes { Might = 10, Will = 13, Alacrity = 11, Constitution = 12 },
+            BaseClassId: "tidebinder",
+            SpecId: "spec.tidebinder.tidecaller"));
+
+    var tidecallerProfile = new SimAbilityProfile { Id = "spec.tidebinder.tidecaller" };
+    var tempestProfile = new SimAbilityProfile { Id = "spec.tidebinder.tempest" };
+
+    var profiles = new LoadedAbilityProfiles(
+        new Dictionary<string, SimAbilityProfile>(StringComparer.Ordinal)
+        {
+            [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1,
+            [tidecallerProfile.Id] = tidecallerProfile,
+            [tempestProfile.Id] = tempestProfile
+        },
+        fallbackSpecId: SimAbilityProfiles.BuiltinV1.Id,
+        message: "requested-spec-override-test");
+
+    await using var profileServer = new AuthoritativeServer(
+        port: 19105,
+        simulationHz: 60,
+        snapshotHz: 10,
+        lootPersistenceSink: null,
+        characterProfileService: existingProfileService,
+        abilityProfiles: profiles);
+    profileServer.Start();
+
+    using var client = new UdpClient(0);
+    client.Client.ReceiveTimeout = 3000;
+    var endpoint = new IPEndPoint(IPAddress.Loopback, 19105);
+
+    _ = await ExchangeForEndpointAsync(client, endpoint, new ClientHello { ClientNonce = 14 });
+    var join = await ExchangeForEndpointAsync(client, endpoint, new JoinOverworldRequest
+    {
+        CharacterName = "RequestedOverride",
+        BaseClassId = "tidebinder",
+        SpecId = "spec.tidebinder.tempest"
+    });
+
+    Assert(join is JoinOverworldAccepted, "requested-spec-override server did not accept join");
+    if (join is JoinOverworldAccepted accepted)
+    {
+        Assert(
+            string.Equals(accepted.SpecId, "spec.tidebinder.tempest", StringComparison.Ordinal),
+            $"join accepted wrong spec when requested should override persisted: '{accepted.SpecId}'");
+        Assert(
+            string.Equals(accepted.BaseClassId, "tidebinder", StringComparison.Ordinal),
+            $"join accepted wrong class when requested should override persisted: '{accepted.BaseClassId}'");
+    }
+
+    var deadline = DateTime.UtcNow.AddSeconds(2);
+    while (DateTime.UtcNow < deadline && existingProfileService.SaveRequests.Count == 0)
+    {
+        await Task.Delay(20);
+    }
+
+    Assert(existingProfileService.SaveRequests.Count > 0, "requested-spec-override path did not enqueue corrected profile save");
+    if (existingProfileService.SaveRequests.Count > 0)
+    {
+        var saved = existingProfileService.SaveRequests[^1].Profile;
+        Assert(
+            string.Equals(saved.SpecId, "spec.tidebinder.tempest", StringComparison.Ordinal),
+            $"requested-spec-override save wrote wrong spec: '{saved.SpecId}'");
+        Assert(
+            string.Equals(saved.BaseClassId, "tidebinder", StringComparison.Ordinal),
+            $"requested-spec-override save wrote wrong class: '{saved.BaseClassId}'");
+    }
+}
+
 async Task<IProtocolMessage?> ExchangeForEndpointAsync(UdpClient client, IPEndPoint endpoint, IProtocolMessage outgoing)
 {
     var payload = ProtocolCodec.Encode(outgoing);
@@ -510,6 +841,42 @@ sealed class TrackingProfileService : ICharacterProfileService
             new Guid(idBytes),
             request.PreferredCharacterName,
             new CharacterProfileData(1, 0, 0, CharacterAttributes.Default, "bastion", "spec.bastion.bulwark")));
+        return true;
+    }
+
+    public bool TryEnqueueSave(CharacterProfileSaveRequest request)
+    {
+        SaveRequests.Add(request);
+        return true;
+    }
+
+    public bool TryDequeueLoaded(out CharacterProfileLoadResult result)
+    {
+        if (_results.Count == 0)
+        {
+            result = default!;
+            return false;
+        }
+
+        result = _results.Dequeue();
+        return true;
+    }
+}
+
+sealed class RepairTrackingProfileService(CharacterProfileData profile) : ICharacterProfileService
+{
+    private readonly Queue<CharacterProfileLoadResult> _results = new();
+    public List<CharacterProfileSaveRequest> SaveRequests { get; } = new();
+
+    public bool TryEnqueueLoad(CharacterProfileLoadRequest request)
+    {
+        var idBytes = new byte[16];
+        BitConverter.GetBytes(request.ClientId).CopyTo(idBytes, 0);
+        _results.Enqueue(new CharacterProfileLoadResult(
+            request.EndpointKey,
+            new Guid(idBytes),
+            request.PreferredCharacterName,
+            profile));
         return true;
     }
 

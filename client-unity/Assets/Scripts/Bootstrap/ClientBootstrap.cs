@@ -3,7 +3,8 @@ using System.Linq;
 using Armament.Client.Networking;
 using UnityEngine;
 
-namespace Armament.Client.Bootstrap;
+namespace Armament.Client.Bootstrap
+{
 
 public static class ClientBootstrap
 {
@@ -27,4 +28,5 @@ public static class ClientBootstrap
         gameObject.AddComponent<WorldDebugRenderer>();
         gameObject.AddComponent<DebugHud>();
     }
+}
 }

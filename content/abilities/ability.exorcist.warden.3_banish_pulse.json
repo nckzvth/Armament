@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.warden.3_banish_pulse",
+  "specId": "spec.exorcist.warden",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 8000,
+  "targeting": { "type": "cone", "rangeM": 3.6, "teamFilter": "enemy", "maxTargets": 8 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 14 },
+    { "primitive": "ConsumeStatus", "statusId": "status.exorcist.warden.bound" },
+    { "primitive": "DealDamage", "coefficientPermille": 1500, "flat": 4 },
+    { "primitive": "StartCooldown" }
+  ]
+}

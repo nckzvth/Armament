@@ -1,0 +1,14 @@
+{
+  "id": "ability.gunslinger.deadeye.4_wind_shear_trap",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 7500,
+  "targeting": { "type": "point", "rangeM": 7.8, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 14 },
+    { "primitive": "DealDamage", "coefficientPermille": 1750, "flat": 8 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

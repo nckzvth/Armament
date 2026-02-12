@@ -1,0 +1,12 @@
+{
+  "id": "ability.gunslinger.akimbo.rmb_wind_drill_shot",
+  "specId": "spec.gunslinger.akimbo",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 560,
+  "targeting": { "type": "line", "rangeM": 8.1, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1450, "flat": 6 }
+  ]
+}

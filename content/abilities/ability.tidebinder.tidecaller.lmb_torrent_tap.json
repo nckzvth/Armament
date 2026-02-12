@@ -1,0 +1,14 @@
+{
+  "id": "ability.tidebinder.tidecaller.lmb_torrent_tap",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "lmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 220,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.1, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 8 },
+    { "primitive": "DealDamage", "coefficientPermille": 980, "flat": 0 },
+    { "primitive": "ApplyStatus", "statusId": "status.tidebinder.tidecaller.soaked" },
+    { "primitive": "StartCooldown" }
+  ]
+}

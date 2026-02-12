@@ -1,0 +1,21 @@
+{
+  "id": "spec.exorcist.inquisitor",
+  "classId": "exorcist",
+  "name": "Inquisitor",
+  "role": "Dps",
+  "resourceId": "resource.exorcist.inquisitor.sanctity",
+  "canonicalStatusId": "status.exorcist.inquisitor.bound",
+  "slots": {
+    "lmb": "ability.exorcist.inquisitor.lmb_censer_lash",
+    "rmb": "ability.exorcist.inquisitor.rmb_sealbrand",
+    "shift": "ability.exorcist.inquisitor.shift_guard",
+    "e": "ability.exorcist.inquisitor.e_abjuration_field",
+    "r": "ability.exorcist.inquisitor.r_chains_of_office",
+    "q": "ability.exorcist.inquisitor.q_heavenfall_excommunication",
+    "t": "ability.exorcist.inquisitor.t_aegis_step",
+    "1": "ability.exorcist.inquisitor.1_scouring_accusation",
+    "2": "ability.exorcist.inquisitor.2_purity_flare",
+    "3": "ability.exorcist.inquisitor.3_banish_pulse",
+    "4": "ability.exorcist.inquisitor.4_relentless_brand"
+  }
+}

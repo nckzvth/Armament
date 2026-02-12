@@ -1,0 +1,13 @@
+{
+  "id": "ability.arbiter.edict.rmb_astral_sink",
+  "specId": "spec.arbiter.edict",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 0,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.7, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1580, "flat": 3 },
+    { "primitive": "ApplyStatus", "statusId": "status.arbiter.edict.decreed" }
+  ]
+}

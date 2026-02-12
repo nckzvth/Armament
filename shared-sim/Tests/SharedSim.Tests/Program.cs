@@ -40,7 +40,11 @@ void ProtocolRoundtripAssertions()
                 Health = 100,
                 BuilderResource = 0,
                 SpenderResource = 0,
-                Currency = 0
+                Currency = 0,
+                DebugPrimaryStatusStacks = 2,
+                DebugConsumedStatusStacks = 3,
+                DebugLastCastSlotCode = 9,
+                DebugLastCastResultCode = 1
             }
         }
     };
@@ -52,6 +56,8 @@ void ProtocolRoundtripAssertions()
     Assert(decoded!.Entities.Count == 2, "snapshot entity count mismatch");
     Assert(decoded.LastProcessedInputSequence == 19, "snapshot ack mismatch");
     Assert(decoded.Entities[1].Kind == EntityKind.Enemy, "snapshot entity kind mismatch");
+    Assert(decoded.Entities[1].DebugLastCastSlotCode == 9, "snapshot cast slot feedback mismatch");
+    Assert(decoded.Entities[1].DebugLastCastResultCode == 1, "snapshot cast result feedback mismatch");
 
     var inputCmd = new InputCommand
     {
@@ -308,12 +314,631 @@ void DeterminismReplayAssertions()
     Assert(worldA.ComputeWorldHash() == worldB.ComputeWorldHash(), "world hash diverged for identical seed and input stream");
 }
 
+void TauntAndCcAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+
+    var state = new OverworldSimState { Seed = 777 };
+    var taunter = new SimEntityState
+    {
+        EntityId = 1,
+        Kind = EntityKind.Player,
+        PositionXMilli = -3200,
+        PositionYMilli = 0
+    };
+    taunter.Character.CharacterId = 1;
+    taunter.Character.Attributes = CharacterAttributes.Default;
+    taunter.Character.RecalculateDerivedStats(tune);
+    taunter.Health = taunter.Character.DerivedStats.MaxHealth;
+    taunter.SpenderResource = taunter.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var nearPlayer = new SimEntityState
+    {
+        EntityId = 2,
+        Kind = EntityKind.Player,
+        PositionXMilli = 0,
+        PositionYMilli = 0
+    };
+    nearPlayer.Character.CharacterId = 2;
+    nearPlayer.Character.Attributes = CharacterAttributes.Default;
+    nearPlayer.Character.RecalculateDerivedStats(tune);
+    nearPlayer.Health = nearPlayer.Character.DerivedStats.MaxHealth;
+    nearPlayer.SpenderResource = nearPlayer.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var enemy = new SimEntityState
+    {
+        EntityId = 3,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 1200,
+        PositionYMilli = 0,
+        Health = 100
+    };
+    enemy.Character.Attributes = CharacterAttributes.Default;
+    enemy.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(taunter);
+    state.UpsertEntity(nearPlayer);
+    state.UpsertEntity(enemy);
+
+    OverworldSimulator.ApplyTaunt(state, enemy, taunter.EntityId, 120);
+    Assert(enemy.ForcedTargetEntityId == taunter.EntityId, "taunt did not bind enemy to taunter");
+    Assert(enemy.ForcedTargetTicks >= 120, "taunt did not set forced target duration");
+
+    var enemyXBefore = enemy.PositionXMilli;
+    OverworldSimulator.Step(state, rules);
+    Assert(enemy.PositionXMilli < enemyXBefore, "taunted enemy did not move toward forced target");
+
+    var slowTarget = new SimEntityState
+    {
+        EntityId = 4,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 4200,
+        PositionYMilli = 0,
+        Health = 100
+    };
+    slowTarget.Character.Attributes = CharacterAttributes.Default;
+    slowTarget.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(slowTarget);
+    var baselineX = slowTarget.PositionXMilli;
+    OverworldSimulator.Step(state, rules);
+    var baselineDelta = baselineX - slowTarget.PositionXMilli;
+
+    slowTarget.PositionXMilli = 4200;
+    slowTarget.Statuses["status.generic.slow"] = new SimStatusState
+    {
+        Id = "status.generic.slow",
+        Stacks = 1,
+        RemainingTicks = 120
+    };
+    OverworldSimulator.Step(state, rules);
+    var slowedDelta = 4200 - slowTarget.PositionXMilli;
+
+    Assert(slowedDelta > 0, "slow target did not move");
+    Assert(slowedDelta < baselineDelta, "slow status did not reduce enemy movement speed");
+}
+
+void ZoneSpawnAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var state = BuildCombatState();
+    state.TryGetEntity(1, out var player);
+    state.TryGetEntity(2, out var enemy);
+
+    var profile = new SimAbilityProfile { Id = "spec.test.zone" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill1] = new SimAbilityDefinition
+    {
+        Id = "ability.test.zone_e",
+        Slot = SimAbilitySlot.E,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 10,
+        CooldownMinTicks = 5,
+        RangeMilli = 2500,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.SpawnZone, ZoneDefId = "zone.exorcist.warden.abjuration_field" }
+        }
+    };
+    state.RegisterAbilityProfile(profile);
+    player!.AbilityProfileId = profile.Id;
+
+    var hpBefore = enemy!.Health;
+    player.ActionFlags = InputActionFlags.Skill1;
+    OverworldSimulator.Step(state, rules);
+
+    Assert(state.Zones.Count > 0, "spawn zone primitive did not create zone state");
+
+    player.ActionFlags = InputActionFlags.None;
+    for (var i = 0; i < 80; i++)
+    {
+        OverworldSimulator.Step(state, rules);
+    }
+
+    Assert(enemy.Health < hpBefore, "zone pulses did not damage enemy over time");
+    Assert(enemy.Statuses.ContainsKey("status.exorcist.warden.bound"), "zone pulses did not apply bound status");
+    Assert(player.DamageReductionPermille > 0, "ward zone did not grant player mitigation");
+}
+
+void MultiTargetAbilityAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+    var state = new OverworldSimState { Seed = 42 };
+
+    var player = new SimEntityState
+    {
+        EntityId = 1,
+        Kind = EntityKind.Player,
+        PositionXMilli = 0,
+        PositionYMilli = 0
+    };
+    player.Character.Attributes = CharacterAttributes.Default;
+    player.Character.RecalculateDerivedStats(tune);
+    player.Health = player.Character.DerivedStats.MaxHealth;
+    player.SpenderResource = player.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var enemyA = new SimEntityState
+    {
+        EntityId = 2,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 1200,
+        PositionYMilli = 0,
+        Health = 160
+    };
+    enemyA.Character.Attributes = CharacterAttributes.Default;
+    enemyA.Character.RecalculateDerivedStats(tune);
+
+    var enemyB = new SimEntityState
+    {
+        EntityId = 3,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 1400,
+        PositionYMilli = 450,
+        Health = 160
+    };
+    enemyB.Character.Attributes = CharacterAttributes.Default;
+    enemyB.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(player);
+    state.UpsertEntity(enemyA);
+    state.UpsertEntity(enemyB);
+
+    var profile = new SimAbilityProfile { Id = "spec.test.aoe" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill1] = new SimAbilityDefinition
+    {
+        Id = "ability.test.aoe",
+        Slot = SimAbilitySlot.E,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 20,
+        CooldownMinTicks = 10,
+        RangeMilli = 2200,
+        MaxTargets = 2,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.DealDamage, CoefficientPermille = 1000, Flat = 4 },
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.ApplyStatus, StatusId = "status.test.mark" }
+        }
+    };
+    state.RegisterAbilityProfile(profile);
+    player.AbilityProfileId = profile.Id;
+
+    player.ActionFlags = InputActionFlags.Skill1;
+    OverworldSimulator.Step(state, rules);
+
+    Assert(enemyA.Health < 160, "aoe ability did not damage nearest target");
+    Assert(enemyB.Health < 160, "aoe ability did not damage second target");
+    Assert(enemyA.Statuses.ContainsKey("status.test.mark"), "aoe ability did not apply status to first target");
+    Assert(enemyB.Statuses.ContainsKey("status.test.mark"), "aoe ability did not apply status to second target");
+}
+
+void HitscanPrimitiveAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+    var state = new OverworldSimState { Seed = 84 };
+
+    var player = new SimEntityState
+    {
+        EntityId = 1,
+        Kind = EntityKind.Player,
+        PositionXMilli = 0,
+        PositionYMilli = 0
+    };
+    player.Character.Attributes = CharacterAttributes.Default;
+    player.Character.RecalculateDerivedStats(tune);
+    player.Health = player.Character.DerivedStats.MaxHealth;
+    player.SpenderResource = player.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var enemyA = new SimEntityState { EntityId = 2, Kind = EntityKind.Enemy, PositionXMilli = 1300, PositionYMilli = 0, Health = 200 };
+    enemyA.Character.Attributes = CharacterAttributes.Default;
+    enemyA.Character.RecalculateDerivedStats(tune);
+    var enemyB = new SimEntityState { EntityId = 3, Kind = EntityKind.Enemy, PositionXMilli = 1700, PositionYMilli = 0, Health = 200 };
+    enemyB.Character.Attributes = CharacterAttributes.Default;
+    enemyB.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(player);
+    state.UpsertEntity(enemyA);
+    state.UpsertEntity(enemyB);
+
+    var profile = new SimAbilityProfile { Id = "spec.test.hitscan" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill1] = new SimAbilityDefinition
+    {
+        Id = "ability.test.hitscan",
+        Slot = SimAbilitySlot.E,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 20,
+        CooldownMinTicks = 10,
+        RangeMilli = 3000,
+        MaxTargets = 2,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.HitscanTrace, CoefficientPermille = 1400, Flat = 6 }
+        }
+    };
+    state.RegisterAbilityProfile(profile);
+    player.AbilityProfileId = profile.Id;
+    player.ActionFlags = InputActionFlags.Skill1;
+
+    OverworldSimulator.Step(state, rules);
+
+    Assert(enemyA.Health < 200, "hitscan primitive did not damage first target");
+    Assert(enemyB.Health < 200, "hitscan primitive did not damage second target");
+}
+
+void ThreatTargetingAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+    var state = new OverworldSimState { Seed = 77 };
+
+    var tank = new SimEntityState { EntityId = 1, Kind = EntityKind.Player, PositionXMilli = -2600, PositionYMilli = 0 };
+    tank.Character.Attributes = CharacterAttributes.Default;
+    tank.Character.RecalculateDerivedStats(tune);
+    tank.Health = tank.Character.DerivedStats.MaxHealth;
+
+    var dps = new SimEntityState { EntityId = 2, Kind = EntityKind.Player, PositionXMilli = 800, PositionYMilli = 0 };
+    dps.Character.Attributes = CharacterAttributes.Default;
+    dps.Character.RecalculateDerivedStats(tune);
+    dps.Health = dps.Character.DerivedStats.MaxHealth;
+
+    var enemy = new SimEntityState { EntityId = 3, Kind = EntityKind.Enemy, PositionXMilli = 1200, PositionYMilli = 0, Health = 200 };
+    enemy.Character.Attributes = CharacterAttributes.Default;
+    enemy.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(tank);
+    state.UpsertEntity(dps);
+    state.UpsertEntity(enemy);
+
+    OverworldSimulator.ApplyThreat(enemy, tank.EntityId, 5000);
+    var xBefore = enemy.PositionXMilli;
+    OverworldSimulator.Step(state, rules);
+
+    Assert(enemy.PositionXMilli < xBefore, "enemy did not retarget movement toward highest-threat player");
+    Assert(enemy.ThreatByPlayerEntityId.TryGetValue(tank.EntityId, out var threatValue) && threatValue > 0, "threat table did not retain applied threat");
+}
+
+void LinkPrimitiveAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+    var state = new OverworldSimState { Seed = 909 };
+
+    var player = new SimEntityState
+    {
+        EntityId = 1,
+        Kind = EntityKind.Player,
+        PositionXMilli = 0,
+        PositionYMilli = 0
+    };
+    player.Character.Attributes = CharacterAttributes.Default;
+    player.Character.RecalculateDerivedStats(tune);
+    player.Health = player.Character.DerivedStats.MaxHealth;
+    player.SpenderResource = player.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var enemy = new SimEntityState
+    {
+        EntityId = 2,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 2000,
+        PositionYMilli = 0,
+        Health = 220
+    };
+    enemy.Character.Attributes = CharacterAttributes.Default;
+    enemy.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(player);
+    state.UpsertEntity(enemy);
+
+    var profile = new SimAbilityProfile { Id = "spec.test.links" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill2] = new SimAbilityDefinition
+    {
+        Id = "ability.test.link_create",
+        Slot = SimAbilitySlot.R,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 10,
+        CooldownMinTicks = 5,
+        RangeMilli = 4000,
+        MaxTargets = 1,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.CreateLink, LinkDefId = "link.dreadweaver.menace.chain_snare" }
+        }
+    };
+    profile.AbilitiesByFlag[InputActionFlags.Skill8] = new SimAbilityDefinition
+    {
+        Id = "ability.test.link_break",
+        Slot = SimAbilitySlot.Skill4,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 10,
+        CooldownMinTicks = 5,
+        RangeMilli = 3000,
+        MaxTargets = 1,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.BreakLink }
+        }
+    };
+
+    state.RegisterAbilityProfile(profile);
+    player.AbilityProfileId = profile.Id;
+
+    var distanceBefore = Math.Abs(enemy.PositionXMilli - player.PositionXMilli);
+    var enemyHpBefore = enemy.Health;
+    player.ActionFlags = InputActionFlags.Skill2;
+    OverworldSimulator.Step(state, rules);
+    Assert(state.Links.Count == 1, "create link primitive did not create a link");
+
+    player.ActionFlags = InputActionFlags.None;
+    for (var i = 0; i < 20; i++)
+    {
+        OverworldSimulator.Step(state, rules);
+    }
+
+    var distanceAfter = Math.Abs(enemy.PositionXMilli - player.PositionXMilli);
+    Assert(distanceAfter < distanceBefore, "active link did not pull target toward owner");
+    Assert(enemy.Health < enemyHpBefore, "active link did not apply periodic damage");
+
+    player.ActionFlags = InputActionFlags.Skill8;
+    OverworldSimulator.Step(state, rules);
+    Assert(state.Links.Count == 0, "break link primitive did not clear owner links");
+}
+
+void HealingAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+    var state = new OverworldSimState { Seed = 111 };
+
+    var player = new SimEntityState
+    {
+        EntityId = 1,
+        Kind = EntityKind.Player,
+        PositionXMilli = 0,
+        PositionYMilli = 0
+    };
+    player.Character.Attributes = CharacterAttributes.Default;
+    player.Character.RecalculateDerivedStats(tune);
+    player.Health = player.Character.DerivedStats.MaxHealth - 40;
+    player.SpenderResource = player.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var enemy = new SimEntityState
+    {
+        EntityId = 2,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 1400,
+        PositionYMilli = 0,
+        Health = 180
+    };
+    enemy.Character.Attributes = CharacterAttributes.Default;
+    enemy.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(player);
+    state.UpsertEntity(enemy);
+
+    var profile = new SimAbilityProfile { Id = "spec.test.healing" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill4] = new SimAbilityDefinition
+    {
+        Id = "ability.test.heal_self",
+        Slot = SimAbilitySlot.T,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 30,
+        CooldownMinTicks = 10,
+        RangeMilli = 0,
+        MaxTargets = 1,
+        TargetTeam = SimTargetTeam.Self,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.Heal, CoefficientPermille = 1000, Flat = 12 }
+        }
+    };
+    profile.AbilitiesByFlag[InputActionFlags.Skill1] = new SimAbilityDefinition
+    {
+        Id = "ability.test.heal_zone",
+        Slot = SimAbilitySlot.E,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 30,
+        CooldownMinTicks = 10,
+        RangeMilli = 3000,
+        MaxTargets = 1,
+        TargetTeam = SimTargetTeam.Ally,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.SpawnZone, ZoneDefId = "zone.tidebinder.tidecaller.soothing_pool" }
+        }
+    };
+
+    state.RegisterAbilityProfile(profile);
+    player.AbilityProfileId = profile.Id;
+
+    var hpBeforeSelfHeal = player.Health;
+    player.ActionFlags = InputActionFlags.Skill4;
+    OverworldSimulator.Step(state, rules);
+    Assert(player.Health > hpBeforeSelfHeal, "heal primitive did not restore self health");
+
+    player.Health = Math.Max(1, player.Health - 30);
+    var hpBeforeZone = player.Health;
+    player.ActionFlags = InputActionFlags.Skill1;
+    OverworldSimulator.Step(state, rules);
+    Assert(state.Zones.Count > 0, "healing zone cast did not spawn zone");
+
+    player.ActionFlags = InputActionFlags.None;
+    for (var i = 0; i < 40; i++)
+    {
+        OverworldSimulator.Step(state, rules);
+    }
+
+    Assert(player.Health > hpBeforeZone, "healing zone pulses did not restore player health");
+}
+
+void TempestDamageZoneAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+    var state = new OverworldSimState { Seed = 121 };
+
+    var player = new SimEntityState
+    {
+        EntityId = 1,
+        Kind = EntityKind.Player,
+        PositionXMilli = 0,
+        PositionYMilli = 0
+    };
+    player.Character.Attributes = CharacterAttributes.Default;
+    player.Character.RecalculateDerivedStats(tune);
+    player.Health = player.Character.DerivedStats.MaxHealth;
+    player.SpenderResource = player.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var enemy = new SimEntityState
+    {
+        EntityId = 2,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 1300,
+        PositionYMilli = 0,
+        Health = 220
+    };
+    enemy.Character.Attributes = CharacterAttributes.Default;
+    enemy.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(player);
+    state.UpsertEntity(enemy);
+
+    var profile = new SimAbilityProfile { Id = "spec.test.tempest" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill1] = new SimAbilityDefinition
+    {
+        Id = "ability.test.tempest_zone",
+        Slot = SimAbilitySlot.E,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 20,
+        CooldownMinTicks = 10,
+        RangeMilli = 3000,
+        TargetTeam = SimTargetTeam.Enemy,
+        MaxTargets = 1,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.SpawnZone, ZoneDefId = "zone.tidebinder.tempest.vortex_pool" }
+        }
+    };
+
+    state.RegisterAbilityProfile(profile);
+    player.AbilityProfileId = profile.Id;
+
+    var hpBefore = enemy.Health;
+    player.ActionFlags = InputActionFlags.Skill1;
+    OverworldSimulator.Step(state, rules);
+    Assert(state.Zones.Count > 0, "tempest vortex cast did not spawn zone");
+
+    player.ActionFlags = InputActionFlags.None;
+    for (var i = 0; i < 40; i++)
+    {
+        OverworldSimulator.Step(state, rules);
+    }
+
+    Assert(enemy.Health < hpBefore, "tempest vortex zone did not damage enemy over time");
+}
+
+void TargetedCastValidationAssertions()
+{
+    var rules = OverworldSimRules.Default;
+    var tune = CharacterStatTuning.Default;
+    var state = new OverworldSimState { Seed = 343 };
+
+    var player = new SimEntityState
+    {
+        EntityId = 1,
+        Kind = EntityKind.Player,
+        PositionXMilli = 0,
+        PositionYMilli = 0
+    };
+    player.Character.Attributes = CharacterAttributes.Default;
+    player.Character.RecalculateDerivedStats(tune);
+    player.Health = player.Character.DerivedStats.MaxHealth;
+    player.SpenderResource = player.Character.DerivedStats.MaxSpenderResource * 1000;
+
+    var enemy = new SimEntityState
+    {
+        EntityId = 2,
+        Kind = EntityKind.Enemy,
+        PositionXMilli = 7_000,
+        PositionYMilli = 0,
+        Health = 260
+    };
+    enemy.Character.Attributes = CharacterAttributes.Default;
+    enemy.Character.RecalculateDerivedStats(tune);
+
+    state.UpsertEntity(player);
+    state.UpsertEntity(enemy);
+
+    var profile = new SimAbilityProfile { Id = "spec.test.cast_validation" };
+    profile.AbilitiesByFlag[InputActionFlags.Skill7] = new SimAbilityDefinition
+    {
+        Id = "ability.test.whirlpool",
+        Slot = SimAbilitySlot.Skill3,
+        InputBehavior = SimAbilityInputBehavior.Tap,
+        BaseCooldownTicks = 30,
+        CooldownMinTicks = 10,
+        RangeMilli = 3000,
+        TargetTeam = SimTargetTeam.Enemy,
+        MaxTargets = 1,
+        HasDamageEffect = false,
+        Effects =
+        {
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.SpendResource, Amount = 24_000 },
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.ConsumeStatus, StatusId = "status.tidebinder.tempest.soaked", Amount = 3 },
+            new SimAbilityEffect { Primitive = SimAbilityPrimitive.DealDamage, CoefficientPermille = 1500, Flat = 6 }
+        }
+    };
+
+    state.RegisterAbilityProfile(profile);
+    player.AbilityProfileId = profile.Id;
+
+    var spenderBeforeNoTarget = player.SpenderResource;
+    player.ActionFlags = InputActionFlags.Skill7;
+    OverworldSimulator.Step(state, rules);
+    Assert(player.SpenderResource == spenderBeforeNoTarget, "targeted cast without target should not spend resource");
+    Assert(player.SkillCooldownTicks[6] == 0, "targeted cast without target should not start cooldown");
+
+    enemy.PositionXMilli = 1_200;
+    enemy.PositionYMilli = 0;
+    enemy.Statuses["status.tidebinder.tempest.soaked"] = new SimStatusState
+    {
+        Id = "status.tidebinder.tempest.soaked",
+        Stacks = 3,
+        RemainingTicks = 300
+    };
+    var hpBeforeCast = enemy.Health;
+    var spenderBeforeCast = player.SpenderResource;
+    player.ActionFlags = InputActionFlags.Skill7;
+    OverworldSimulator.Step(state, rules);
+    Assert(player.SpenderResource < spenderBeforeCast, "targeted cast with target should spend resource");
+    Assert(player.SkillCooldownTicks[6] > 0, "targeted cast with target should start cooldown");
+    Assert(enemy.Health < hpBeforeCast, "targeted cast with target should damage enemy");
+    Assert(player.DebugLastConsumedStatusStacks > 0, "consume-status cast should report consumed stacks");
+}
+
 ProtocolRoundtripAssertions();
 RngAssertions();
 CharacterMathAssertions();
 CombatAssertions();
 LootPickupAssertions();
 DeterminismReplayAssertions();
+TauntAndCcAssertions();
+ZoneSpawnAssertions();
+MultiTargetAbilityAssertions();
+HitscanPrimitiveAssertions();
+ThreatTargetingAssertions();
+LinkPrimitiveAssertions();
+HealingAssertions();
+TempestDamageZoneAssertions();
+TargetedCastValidationAssertions();
 
 if (failures.Count > 0)
 {

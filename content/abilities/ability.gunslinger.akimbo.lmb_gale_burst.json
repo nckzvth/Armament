@@ -1,0 +1,14 @@
+{
+  "id": "ability.gunslinger.akimbo.lmb_gale_burst",
+  "specId": "spec.gunslinger.akimbo",
+  "slot": "lmb",
+  "inputBehavior": "hold_repeat",
+  "animTag": "gunslinger.akimbo.lmb_gale_burst",
+  "vfxTag": "vfx.gunslinger.akimbo.muzzle_light",
+  "cooldownMs": 90,
+  "targeting": { "type": "nearest_in_range", "rangeM": 7.2, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 5 },
+    { "primitive": "DealDamage", "coefficientPermille": 760, "flat": 1 }
+  ]
+}

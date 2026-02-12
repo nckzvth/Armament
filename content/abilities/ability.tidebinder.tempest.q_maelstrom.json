@@ -1,0 +1,12 @@
+{
+  "id": "ability.tidebinder.tempest.q_maelstrom",
+  "specId": "spec.tidebinder.tempest",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 30000,
+  "targeting": { "type": "point", "rangeM": 4.2, "teamFilter": "enemy", "maxTargets": 6 },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.tidebinder.tempest.maelstrom" },
+    { "primitive": "StartCooldown" }
+  ]
+}

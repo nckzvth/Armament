@@ -1,0 +1,14 @@
+{
+  "id": "ability.tidebinder.tempest.3_whirlpool_collapse",
+  "specId": "spec.tidebinder.tempest",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "circle", "rangeM": 3.8, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 24 },
+    { "primitive": "ConsumeStatus", "statusId": "status.tidebinder.tempest.soaked", "amount": 3 },
+    { "primitive": "DealDamage", "coefficientPermille": 1750, "flat": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

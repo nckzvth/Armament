@@ -1,0 +1,14 @@
+{
+  "id": "ability.tidebinder.tempest.rmb_riptide_thrust",
+  "specId": "spec.tidebinder.tempest",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 420,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.6, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 12 },
+    { "primitive": "DealDamage", "coefficientPermille": 1450, "flat": 3 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

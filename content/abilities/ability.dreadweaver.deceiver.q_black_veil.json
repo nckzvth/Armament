@@ -1,0 +1,15 @@
+{
+  "id": "ability.dreadweaver.deceiver.q_black_veil",
+  "specId": "spec.dreadweaver.deceiver",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 26000,
+  "targeting": { "type": "circle", "rangeM": 3.0, "teamFilter": "enemy", "maxTargets": 6 },
+  "effects": [
+    { "primitive": "ApplyShield", "amount": 16 },
+    { "primitive": "ApplyDR", "amount": 15 },
+    { "primitive": "DealDamage", "coefficientPermille": 1800, "flat": 12 },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.deceiver.smoke_mark" },
+    { "primitive": "StartCooldown" }
+  ]
+}

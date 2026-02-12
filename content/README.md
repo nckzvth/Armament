@@ -1,8 +1,8 @@
-# Class Content Pack (Planned)
+# Class Content Pack
 
-This folder is reserved for authoritative class content definitions consumed by server/shared sim validation.
+This folder contains authoritative class content definitions consumed by server/shared-sim validation.
 
-Planned layout:
+Layout:
 
 - `specs/`
 - `abilities/`
@@ -16,5 +16,10 @@ Contract source:
 - `/Users/nckzvth/Projects/Armament/docs/classes/CLASS_SYSTEM_CONTRACT.md`
 
 Current status:
-- directory scaffold only
-- schema + validators are next implementation step
+- `spec.bastion.bulwark` is authored and playable
+- `spec.exorcist.warden` is authored and playable
+- `spec.gunslinger.deadeye` is authored and playable
+- `spec.dreadweaver.menace` is authored and playable (link/tether runtime)
+- `spec.tidebinder.tidecaller` is authored and playable (healing primitive + healing zones)
+- `spec.tidebinder.tempest` is authored and playable (damage-focused soaked + vortex/maelstrom zones)
+- content validation + profile compilation checks run in `./ops/scripts/verify.sh`

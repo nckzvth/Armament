@@ -1,0 +1,21 @@
+{
+  "id": "spec.tidebinder.tidecaller",
+  "classId": "tidebinder",
+  "name": "Tidecaller",
+  "role": "Healer",
+  "resourceId": "resource.tidebinder.tidecaller.flow",
+  "canonicalStatusId": "status.tidebinder.tidecaller.soaked",
+  "slots": {
+    "lmb": "ability.tidebinder.tidecaller.lmb_torrent_tap",
+    "rmb": "ability.tidebinder.tidecaller.rmb_riptide_thrust",
+    "shift": "ability.tidebinder.tidecaller.shift_guard",
+    "e": "ability.tidebinder.tidecaller.e_soothing_pool",
+    "r": "ability.tidebinder.tidecaller.r_tidal_wall",
+    "q": "ability.tidebinder.tidecaller.q_maelstrom_of_mercy",
+    "t": "ability.tidebinder.tidecaller.t_undertow_step",
+    "1": "ability.tidebinder.tidecaller.1_soaking_deluge",
+    "2": "ability.tidebinder.tidecaller.2_purifying_current",
+    "3": "ability.tidebinder.tidecaller.3_whirlpool_collapse",
+    "4": "ability.tidebinder.tidecaller.4_eddy_beacon"
+  }
+}

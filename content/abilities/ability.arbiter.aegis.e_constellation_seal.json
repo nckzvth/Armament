@@ -1,0 +1,15 @@
+{
+  "id": "ability.arbiter.aegis.e_constellation_seal",
+  "specId": "spec.arbiter.aegis",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "cooldownMs": 12000,
+  "targeting": { "type": "circle", "rangeM": 4.5, "teamFilter": "ally", "maxTargets": 6, "shape": { "radiusM": 4.5 } },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 25 },
+    { "primitive": "Heal", "flat": 10 },
+    { "primitive": "ApplyStatus", "statusId": "status.arbiter.aegis.starbound" },
+    { "primitive": "SpawnZone", "zoneDefId": "zone.arbiter.aegis.seal" },
+    { "primitive": "StartCooldown" }
+  ]
+}

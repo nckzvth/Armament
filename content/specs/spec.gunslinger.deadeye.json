@@ -1,0 +1,21 @@
+{
+  "id": "spec.gunslinger.deadeye",
+  "classId": "gunslinger",
+  "name": "Deadeye",
+  "role": "Dps",
+  "resourceId": "resource.gunslinger.deadeye.slipstream",
+  "canonicalStatusId": "status.gunslinger.deadeye.drafted",
+  "slots": {
+    "lmb": "ability.gunslinger.deadeye.lmb_measured_burst",
+    "rmb": "ability.gunslinger.deadeye.rmb_wind_drill_shot",
+    "shift": "ability.gunslinger.deadeye.shift_brace",
+    "e": "ability.gunslinger.deadeye.e_crosswind_pierce",
+    "r": "ability.gunslinger.deadeye.r_aerial_strafe",
+    "q": "ability.gunslinger.deadeye.q_deadeye_barrage",
+    "t": "ability.gunslinger.deadeye.t_marking_draft",
+    "1": "ability.gunslinger.deadeye.1_rangefinder_volley",
+    "2": "ability.gunslinger.deadeye.2_focus_breath",
+    "3": "ability.gunslinger.deadeye.3_pinpoint_break",
+    "4": "ability.gunslinger.deadeye.4_wind_shear_trap"
+  }
+}

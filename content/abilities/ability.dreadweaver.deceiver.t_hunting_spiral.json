@@ -1,0 +1,13 @@
+{
+  "id": "ability.dreadweaver.deceiver.t_hunting_spiral",
+  "specId": "spec.dreadweaver.deceiver",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 5200,
+  "targeting": { "type": "circle", "rangeM": 2.9, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "DealDamage", "coefficientPermille": 1320, "flat": 7 },
+    { "primitive": "GainResource", "amount": 12 },
+    { "primitive": "StartCooldown" }
+  ]
+}

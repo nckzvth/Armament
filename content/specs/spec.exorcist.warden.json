@@ -1,0 +1,21 @@
+{
+  "id": "spec.exorcist.warden",
+  "classId": "exorcist",
+  "name": "Warden",
+  "role": "Tank",
+  "resourceId": "resource.exorcist.warden.sanctity",
+  "canonicalStatusId": "status.exorcist.warden.bound",
+  "slots": {
+    "lmb": "ability.exorcist.warden.lmb_censer_lash",
+    "rmb": "ability.exorcist.warden.rmb_sealbrand",
+    "shift": "ability.exorcist.warden.shift_guard",
+    "e": "ability.exorcist.warden.e_abjuration_field",
+    "r": "ability.exorcist.warden.r_chains_of_office",
+    "q": "ability.exorcist.warden.q_heavenfall_excommunication",
+    "t": "ability.exorcist.warden.t_aegis_step",
+    "1": "ability.exorcist.warden.1_rite_of_accusation",
+    "2": "ability.exorcist.warden.2_purity_flare",
+    "3": "ability.exorcist.warden.3_banish_pulse",
+    "4": "ability.exorcist.warden.4_ward_glyph_sentinel"
+  }
+}

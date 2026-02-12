@@ -1,0 +1,12 @@
+{
+  "id": "ability.gunslinger.deadeye.shift_brace",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "shift",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 0,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "ApplyDR" },
+    { "primitive": "GainResource", "amount": 2 }
+  ]
+}

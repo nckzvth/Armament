@@ -1,0 +1,16 @@
+{
+  "id": "ability.dreadweaver.deceiver.lmb_cinder_lash",
+  "specId": "spec.dreadweaver.deceiver",
+  "slot": "lmb",
+  "inputBehavior": "hold_repeat",
+  "animTag": "dreadweaver.deceiver.lmb_cinder_lash",
+  "vfxTag": "vfx.dreadweaver.deceiver.lash",
+  "cooldownMs": 180,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.1, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 9 },
+    { "primitive": "DealDamage", "coefficientPermille": 1120, "flat": 1 },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.deceiver.smoke_mark" },
+    { "primitive": "StartCooldown" }
+  ]
+}

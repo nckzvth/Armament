@@ -1,0 +1,11 @@
+{
+  "id": "ability.tidebinder.tidecaller.shift_guard",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "shift",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 0,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "ApplyDR", "amount": 20 }
+  ]
+}

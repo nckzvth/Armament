@@ -1,0 +1,13 @@
+{
+  "id": "ability.arbiter.aegis.1_aegis_surge",
+  "specId": "spec.arbiter.aegis",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 14000,
+  "targeting": { "type": "circle", "rangeM": 3.0, "teamFilter": "ally", "maxTargets": 6, "shape": { "radiusM": 3.0 } },
+  "effects": [
+    { "primitive": "ApplyShield", "amount": 14000 },
+    { "primitive": "ApplyStatus", "statusId": "status.arbiter.aegis.starbound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

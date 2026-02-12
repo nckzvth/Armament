@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.inquisitor.3_banish_pulse",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 8500,
+  "targeting": { "type": "cone", "rangeM": 3.9, "teamFilter": "enemy", "maxTargets": 8 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 16 },
+    { "primitive": "ConsumeStatus", "statusId": "status.exorcist.inquisitor.bound", "amount": 3 },
+    { "primitive": "DealDamage", "coefficientPermille": 1850, "flat": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

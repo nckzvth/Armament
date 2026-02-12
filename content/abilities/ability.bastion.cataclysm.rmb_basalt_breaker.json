@@ -1,0 +1,13 @@
+{
+  "id": "ability.bastion.cataclysm.rmb_basalt_breaker",
+  "specId": "spec.bastion.cataclysm",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 0,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.5, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 12 },
+    { "primitive": "DealDamage", "coefficientPermille": 1550, "flat": 2 },
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.cataclysm.scorched" }
+  ]
+}

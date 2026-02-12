@@ -1,0 +1,13 @@
+{
+  "id": "ability.tidebinder.tempest.2_stormbrand",
+  "specId": "spec.tidebinder.tempest",
+  "slot": "2",
+  "inputBehavior": "tap",
+  "cooldownMs": 10000,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 12 },
+    { "primitive": "ApplyShield", "amount": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "ability.arbiter.edict.shift_guard",
+  "specId": "spec.arbiter.edict",
+  "slot": "shift",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 0,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "ApplyDR", "amount": 12 },
+    { "primitive": "GainResource", "amount": 4 }
+  ]
+}

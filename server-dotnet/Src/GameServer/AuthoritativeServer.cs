@@ -84,30 +84,37 @@ public sealed class AuthoritativeServer : IAsyncDisposable
 
         while (!_cts.IsCancellationRequested)
         {
-            DrainCharacterProfileResults();
-            DrainNetworkInbox();
-            EvictInactiveConnections();
-            _overworldZone.Step();
-            EnqueueLootPersistence(
-                _overworldZone.ZoneKind,
-                _overworldZone.InstanceId,
-                _overworldZone.LastLootGrantEvents,
-                _overworldZone.TryResolveClientIdByEntity);
-            foreach (var dungeon in _dungeonInstances.Values)
+            try
             {
-                dungeon.Step();
+                DrainCharacterProfileResults();
+                DrainNetworkInbox();
+                EvictInactiveConnections();
+                _overworldZone.Step();
                 EnqueueLootPersistence(
-                    ZoneKind.Dungeon,
-                    dungeon.InstanceId,
-                    dungeon.LastLootGrantEvents,
-                    dungeon.TryResolveClientIdByEntity);
+                    _overworldZone.ZoneKind,
+                    _overworldZone.InstanceId,
+                    _overworldZone.LastLootGrantEvents,
+                    _overworldZone.TryResolveClientIdByEntity);
+                foreach (var dungeon in _dungeonInstances.Values)
+                {
+                    dungeon.Step();
+                    EnqueueLootPersistence(
+                        ZoneKind.Dungeon,
+                        dungeon.InstanceId,
+                        dungeon.LastLootGrantEvents,
+                        dungeon.TryResolveClientIdByEntity);
+                }
+
+                _tick++;
+
+                if (_tick % SnapshotIntervalTicks == 0)
+                {
+                    BroadcastSnapshot();
+                }
             }
-
-            _tick++;
-
-            if (_tick % SnapshotIntervalTicks == 0)
+            catch (Exception ex)
             {
-                BroadcastSnapshot();
+                Console.WriteLine($"[Server] Tick error at {_tick}: {ex.GetType().Name} {ex.Message}");
             }
 
             nextTickAt += tickInterval;
@@ -204,7 +211,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             }
             else
             {
-                state.EntityId = _overworldZone.Join(state.ClientId, request.CharacterName, ResolveProfileIdForConnection(state));
+                state.EntityId = _overworldZone.Join(state.ClientId, request.CharacterName, ResolveAndApplyProfileIdForConnection(state));
             }
 
             state.ZoneKind = ZoneKind.Overworld;
@@ -233,7 +240,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
                 {
                     _pendingJoinRequests[endpointKey] = new PendingJoinRequest
                     {
-                        Endpoint = endpoint
+                        Endpoint = endpoint,
+                        RequestedBaseClassId = state.BaseClassId,
+                        RequestedSpecId = state.SpecId
                     };
                     return;
                 }
@@ -248,7 +257,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         {
             EntityId = state.EntityId,
             PlayerCount = (ushort)_overworldZone.PlayerCount,
-            ZoneKind = ZoneKind.Overworld
+            ZoneKind = ZoneKind.Overworld,
+            BaseClassId = state.BaseClassId,
+            SpecId = state.SpecId
         };
 
         _transport.Send(endpoint, ProtocolCodec.Encode(accepted));
@@ -256,12 +267,13 @@ public sealed class AuthoritativeServer : IAsyncDisposable
 
     private void DrainCharacterProfileResults()
     {
-        if (_characterProfileService is null)
+        var profileService = _characterProfileService;
+        if (profileService is null)
         {
             return;
         }
 
-        while (_characterProfileService.TryDequeueLoaded(out var result))
+        while (profileService.TryDequeueLoaded(out var result))
         {
             if (!_pendingJoinRequests.TryGetValue(result.EndpointKey, out var pending))
             {
@@ -285,8 +297,41 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             }
             if (result.Profile is not null)
             {
-                state.BaseClassId = result.Profile.BaseClassId;
-                state.SpecId = result.Profile.SpecId;
+                var loadedProfile = result.Profile;
+                var loadedAvailable = _abilityProfiles.BySpecId.ContainsKey(loadedProfile.SpecId);
+                var requestedAvailable = _abilityProfiles.BySpecId.ContainsKey(pending.RequestedSpecId);
+
+                if (requestedAvailable && !string.Equals(loadedProfile.SpecId, pending.RequestedSpecId, StringComparison.Ordinal))
+                {
+                    var reason = loadedAvailable
+                        ? "requested spec differs from persisted profile"
+                        : "persisted spec unavailable";
+                    Console.WriteLine(
+                        $"[Server] Profile spec sync for client {state.ClientId}: persisted '{loadedProfile.SpecId}' -> requested '{pending.RequestedSpecId}' ({reason}).");
+                    state.BaseClassId = pending.RequestedBaseClassId;
+                    state.SpecId = pending.RequestedSpecId;
+
+                    if (_characterProfileService is not null && state.CharacterId != Guid.Empty)
+                    {
+                        var correctedProfile = new CharacterProfileData(
+                            loadedProfile.Level,
+                            loadedProfile.Experience,
+                            loadedProfile.Currency,
+                            loadedProfile.Attributes,
+                            state.BaseClassId,
+                            state.SpecId);
+
+                        _ = _characterProfileService.TryEnqueueSave(new CharacterProfileSaveRequest(
+                            state.CharacterId,
+                            state.CharacterName,
+                            correctedProfile));
+                    }
+                }
+                else
+                {
+                    state.BaseClassId = loadedProfile.BaseClassId;
+                    state.SpecId = loadedProfile.SpecId;
+                }
             }
 
             JoinOverworldImmediately(state, pending.Endpoint, result.Profile);
@@ -296,10 +341,20 @@ public sealed class AuthoritativeServer : IAsyncDisposable
 
     private void JoinOverworldImmediately(ConnectionState state, IPEndPoint endpoint, CharacterProfileData? profile)
     {
-        state.EntityId = _overworldZone.Join(state.ClientId, state.CharacterName, ResolveProfileIdForConnection(state));
+        CharacterProfileData? profileToApply = null;
         if (profile is not null)
         {
-            _ = _overworldZone.TryApplyPersistentProfile(state.ClientId, profile);
+            profileToApply = profile with
+            {
+                BaseClassId = state.BaseClassId,
+                SpecId = state.SpecId
+            };
+        }
+
+        state.EntityId = _overworldZone.Join(state.ClientId, state.CharacterName, ResolveAndApplyProfileIdForConnection(state));
+        if (profileToApply is not null)
+        {
+            _ = _overworldZone.TryApplyPersistentProfile(state.ClientId, profileToApply);
         }
 
         state.Joined = true;
@@ -311,7 +366,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         {
             EntityId = state.EntityId,
             PlayerCount = (ushort)_overworldZone.PlayerCount,
-            ZoneKind = ZoneKind.Overworld
+            ZoneKind = ZoneKind.Overworld,
+            BaseClassId = state.BaseClassId,
+            SpecId = state.SpecId
         };
 
         _transport.Send(endpoint, ProtocolCodec.Encode(accepted));
@@ -351,7 +408,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             {
                 EntityId = state.EntityId,
                 DungeonInstanceId = instanceId,
-                ZoneKind = ZoneKind.Dungeon
+                ZoneKind = ZoneKind.Dungeon,
+                BaseClassId = state.BaseClassId,
+                SpecId = state.SpecId
             };
             _transport.Send(endpoint, ProtocolCodec.Encode(accepted));
         }
@@ -547,9 +606,39 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         return new Guid(guidBytes);
     }
 
-    private string ResolveProfileIdForConnection(ConnectionState state)
+    private string ResolveAndApplyProfileIdForConnection(ConnectionState state)
     {
-        return _abilityProfiles.ResolveForSpec(state.SpecId).Id;
+        var requested = state.SpecId;
+        var resolved = _abilityProfiles.ResolveForSpec(requested).Id;
+        if (!string.Equals(requested, resolved, StringComparison.Ordinal))
+        {
+            Console.WriteLine($"[Server] Spec fallback for client {state.ClientId}: requested '{requested}', resolved '{resolved}'.");
+        }
+
+        state.SpecId = resolved;
+        var parsedClass = TryParseClassFromSpecId(resolved);
+        if (!string.IsNullOrWhiteSpace(parsedClass))
+        {
+            state.BaseClassId = parsedClass;
+        }
+
+        return resolved;
+    }
+
+    private static string? TryParseClassFromSpecId(string specId)
+    {
+        if (string.IsNullOrWhiteSpace(specId))
+        {
+            return null;
+        }
+
+        var parts = specId.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 3 && string.Equals(parts[0], "spec", StringComparison.OrdinalIgnoreCase))
+        {
+            return parts[1].ToLowerInvariant();
+        }
+
+        return null;
     }
 
     public async ValueTask DisposeAsync()
@@ -594,5 +683,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
     private sealed class PendingJoinRequest
     {
         public required IPEndPoint Endpoint { get; init; }
+        public required string RequestedBaseClassId { get; init; }
+        public required string RequestedSpecId { get; init; }
     }
 }

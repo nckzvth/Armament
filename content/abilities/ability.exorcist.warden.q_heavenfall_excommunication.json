@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.warden.q_heavenfall_excommunication",
+  "specId": "spec.exorcist.warden",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 25000,
+  "targeting": { "type": "circle", "rangeM": 5.5, "teamFilter": "enemy", "maxTargets": 10 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 20 },
+    { "primitive": "DealDamage", "coefficientPermille": 2400, "flat": 12 },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.warden.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

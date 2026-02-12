@@ -1,0 +1,8 @@
+{
+  "id": "status.gunslinger.akimbo.drafted",
+  "stackCap": 1,
+  "stackAddRule": "no_stack",
+  "refreshRule": "refresh_duration",
+  "defaultDurationMs": 6000,
+  "dispelTags": ["hex"]
+}

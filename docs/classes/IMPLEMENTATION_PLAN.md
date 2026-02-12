@@ -73,4 +73,17 @@ Exit criteria:
   - client UI only presents server-valid choices
 - Current stage status:
   - runtime profile compile pipeline exists
-  - character-bound class/spec selection wiring is not yet implemented
+  - character-bound class/spec selection wiring is implemented in menu + persistence flow
+  - authored playable specs currently include:
+    - `bastion.bulwark`
+    - `bastion.cataclysm`
+    - `exorcist.warden`
+    - `exorcist.inquisitor`
+    - `gunslinger.akimbo`
+    - `gunslinger.deadeye`
+    - `dreadweaver.menace`
+    - `dreadweaver.deceiver`
+    - `tidebinder.tidecaller`
+    - `tidebinder.tempest`
+    - `arbiter.aegis`
+    - `arbiter.edict`

@@ -1,0 +1,13 @@
+{
+  "id": "ability.gunslinger.deadeye.q_deadeye_barrage",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 18000,
+  "targeting": { "type": "aim", "rangeM": 9.5, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 20 },
+    { "primitive": "DealDamage", "coefficientPermille": 2350, "flat": 14 },
+    { "primitive": "StartCooldown" }
+  ]
+}

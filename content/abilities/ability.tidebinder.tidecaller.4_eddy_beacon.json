@@ -1,0 +1,12 @@
+{
+  "id": "ability.tidebinder.tidecaller.4_eddy_beacon",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 11000,
+  "targeting": { "type": "point", "rangeM": 3.8, "teamFilter": "ally", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.tidebinder.tidecaller.soothing_pool" },
+    { "primitive": "StartCooldown" }
+  ]
+}

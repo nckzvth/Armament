@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.menace.2_black_veil",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "2",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "Cleanse" },
+    { "primitive": "ApplyShield", "amount": 16 },
+    { "primitive": "ApplyDR", "amount": 12 },
+    { "primitive": "StartCooldown" }
+  ]
+}

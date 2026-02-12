@@ -1,0 +1,14 @@
+{
+  "id": "ability.tidebinder.tidecaller.rmb_riptide_thrust",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 420,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.5, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 12 },
+    { "primitive": "DealDamage", "coefficientPermille": 1300, "flat": 2 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ability.gunslinger.akimbo.t_marking_draft",
+  "specId": "spec.gunslinger.akimbo",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 3200,
+  "targeting": { "type": "nearest_in_range", "rangeM": 8.6, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "ApplyStatus", "statusId": "status.gunslinger.akimbo.drafted" },
+    { "primitive": "DealDamage", "coefficientPermille": 1080, "flat": 4 },
+    { "primitive": "StartCooldown" }
+  ]
+}

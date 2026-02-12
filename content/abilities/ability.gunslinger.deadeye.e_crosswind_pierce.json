@@ -1,0 +1,13 @@
+{
+  "id": "ability.gunslinger.deadeye.e_crosswind_pierce",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "cooldownMs": 4500,
+  "targeting": { "type": "line", "rangeM": 9.0, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "HitscanTrace", "coefficientPermille": 1650, "flat": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

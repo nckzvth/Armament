@@ -22,7 +22,7 @@ public static class ClassSpecCatalog
         ["exorcist"] = new[] { "spec.exorcist.warden", "spec.exorcist.inquisitor" },
         ["tidebinder"] = new[] { "spec.tidebinder.tidecaller", "spec.tidebinder.tempest" },
         ["gunslinger"] = new[] { "spec.gunslinger.akimbo", "spec.gunslinger.deadeye" },
-        ["dreadweaver"] = new[] { "spec.dreadweaver.menace", "spec.dreadweaver.weaver" },
+        ["dreadweaver"] = new[] { "spec.dreadweaver.menace", "spec.dreadweaver.deceiver" },
         ["arbiter"] = new[] { "spec.arbiter.aegis", "spec.arbiter.edict" }
     };
 
@@ -43,9 +43,10 @@ public static class ClassSpecCatalog
         var specs = SpecsByClass[normalizedClass];
         if (!string.IsNullOrWhiteSpace(requestedSpecId))
         {
+            var normalizedRequested = NormalizeLegacySpecId(requestedSpecId.Trim());
             for (var i = 0; i < specs.Length; i++)
             {
-                if (string.Equals(specs[i], requestedSpecId.Trim(), StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(specs[i], normalizedRequested, StringComparison.OrdinalIgnoreCase))
                 {
                     return specs[i];
                 }
@@ -59,5 +60,15 @@ public static class ClassSpecCatalog
     {
         var normalized = NormalizeBaseClass(baseClassId);
         return SpecsByClass[normalized];
+    }
+
+    private static string NormalizeLegacySpecId(string requestedSpecId)
+    {
+        if (string.Equals(requestedSpecId, "spec.dreadweaver.weaver", StringComparison.OrdinalIgnoreCase))
+        {
+            return "spec.dreadweaver.deceiver";
+        }
+
+        return requestedSpecId;
     }
 }

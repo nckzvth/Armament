@@ -1,0 +1,15 @@
+{
+  "id": "ability.exorcist.inquisitor.2_purity_flare",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "2",
+  "inputBehavior": "tap",
+  "cooldownMs": 7500,
+  "targeting": { "type": "circle", "rangeM": 3.0, "teamFilter": "enemy", "maxTargets": 8 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1350, "flat": 3 },
+    { "primitive": "Cleanse" },
+    { "primitive": "GainResource", "amount": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

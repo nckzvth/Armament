@@ -35,6 +35,8 @@ public static class ProtocolCodec
                 writer.Write(accepted.EntityId);
                 writer.Write(accepted.PlayerCount);
                 writer.Write((byte)accepted.ZoneKind);
+                writer.Write(accepted.BaseClassId);
+                writer.Write(accepted.SpecId);
                 break;
             case JoinDungeonRequest:
                 break;
@@ -42,6 +44,8 @@ public static class ProtocolCodec
                 writer.Write(dungeonAccepted.EntityId);
                 writer.Write(dungeonAccepted.DungeonInstanceId);
                 writer.Write((byte)dungeonAccepted.ZoneKind);
+                writer.Write(dungeonAccepted.BaseClassId);
+                writer.Write(dungeonAccepted.SpecId);
                 break;
             case DisconnectRequest:
                 break;
@@ -68,6 +72,26 @@ public static class ProtocolCodec
                     writer.Write(entity.BuilderResource);
                     writer.Write(entity.SpenderResource);
                     writer.Write(entity.Currency);
+                    writer.Write(entity.FastCooldownTicks);
+                    writer.Write(entity.HeavyCooldownTicks);
+                    writer.Write(entity.Skill1CooldownTicks);
+                    writer.Write(entity.Skill2CooldownTicks);
+                    writer.Write(entity.Skill3CooldownTicks);
+                    writer.Write(entity.Skill4CooldownTicks);
+                    writer.Write(entity.Skill5CooldownTicks);
+                    writer.Write(entity.Skill6CooldownTicks);
+                    writer.Write(entity.Skill7CooldownTicks);
+                    writer.Write(entity.Skill8CooldownTicks);
+                    writer.Write(entity.AggroTargetEntityId);
+                    writer.Write(entity.AggroThreatValue);
+                    writer.Write(entity.ForcedTargetTicks);
+                    writer.Write(entity.DebugPrimaryStatusStacks);
+                    writer.Write(entity.DebugConsumedStatusStacks);
+                    writer.Write(entity.DebugLastCastSlotCode);
+                    writer.Write(entity.DebugLastCastResultCode);
+                    writer.Write(entity.DebugLastCastTargetTeamCode);
+                    writer.Write(entity.DebugLastCastAffectedCount);
+                    writer.Write(entity.DebugLastCastVfxCode);
                 }
                 break;
             default:
@@ -101,14 +125,18 @@ public static class ProtocolCodec
                 {
                     EntityId = reader.ReadUInt32(),
                     PlayerCount = reader.ReadUInt16(),
-                    ZoneKind = (ZoneKind)reader.ReadByte()
+                    ZoneKind = (ZoneKind)reader.ReadByte(),
+                    BaseClassId = ReadTrailingString(reader, string.Empty),
+                    SpecId = ReadTrailingString(reader, string.Empty)
                 },
                 MessageType.JoinDungeonRequest => new JoinDungeonRequest(),
                 MessageType.JoinDungeonAccepted => new JoinDungeonAccepted
                 {
                     EntityId = reader.ReadUInt32(),
                     DungeonInstanceId = reader.ReadUInt32(),
-                    ZoneKind = (ZoneKind)reader.ReadByte()
+                    ZoneKind = (ZoneKind)reader.ReadByte(),
+                    BaseClassId = ReadTrailingString(reader, string.Empty),
+                    SpecId = ReadTrailingString(reader, string.Empty)
                 },
                 MessageType.DisconnectRequest => new DisconnectRequest(),
                 MessageType.InputCommand => new InputCommand
@@ -152,7 +180,27 @@ public static class ProtocolCodec
                 Health = reader.ReadUInt16(),
                 BuilderResource = reader.ReadUInt16(),
                 SpenderResource = reader.ReadUInt16(),
-                Currency = reader.ReadUInt16()
+                Currency = reader.ReadUInt16(),
+                FastCooldownTicks = reader.ReadByte(),
+                HeavyCooldownTicks = reader.ReadByte(),
+                Skill1CooldownTicks = reader.ReadByte(),
+                Skill2CooldownTicks = reader.ReadByte(),
+                Skill3CooldownTicks = reader.ReadByte(),
+                Skill4CooldownTicks = reader.ReadByte(),
+                Skill5CooldownTicks = reader.ReadByte(),
+                Skill6CooldownTicks = reader.ReadByte(),
+                Skill7CooldownTicks = reader.ReadByte(),
+                Skill8CooldownTicks = reader.ReadByte(),
+                AggroTargetEntityId = reader.ReadUInt32(),
+                AggroThreatValue = reader.ReadUInt16(),
+                ForcedTargetTicks = reader.ReadByte(),
+                DebugPrimaryStatusStacks = reader.ReadByte(),
+                DebugConsumedStatusStacks = reader.ReadByte(),
+                DebugLastCastSlotCode = reader.ReadByte(),
+                DebugLastCastResultCode = reader.ReadByte(),
+                DebugLastCastTargetTeamCode = reader.ReadByte(),
+                DebugLastCastAffectedCount = reader.ReadByte(),
+                DebugLastCastVfxCode = reader.ReadUInt16()
             });
         }
 
@@ -210,5 +258,15 @@ public static class ProtocolCodec
             BaseClassId = baseClassId,
             SpecId = specId
         };
+    }
+
+    private static string ReadTrailingString(BinaryReader reader, string fallback)
+    {
+        if (reader.BaseStream.Position >= reader.BaseStream.Length)
+        {
+            return fallback;
+        }
+
+        return reader.ReadString();
     }
 }

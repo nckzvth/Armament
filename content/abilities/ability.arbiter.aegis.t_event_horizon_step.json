@@ -1,0 +1,13 @@
+{
+  "id": "ability.arbiter.aegis.t_event_horizon_step",
+  "specId": "spec.arbiter.aegis",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 8200,
+  "targeting": { "type": "circle", "rangeM": 2.6, "teamFilter": "ally", "maxTargets": 4, "shape": { "radiusM": 2.6 } },
+  "effects": [
+    { "primitive": "Heal", "flat": 8 },
+    { "primitive": "GainResource", "amount": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "spec.arbiter.edict",
+  "classId": "arbiter",
+  "name": "Edict",
+  "role": "Dps",
+  "resourceId": "resource.arbiter.edict.alignment",
+  "canonicalStatusId": "status.arbiter.edict.decreed",
+  "slots": {
+    "lmb": "ability.arbiter.edict.lmb_stellar_thread",
+    "rmb": "ability.arbiter.edict.rmb_astral_sink",
+    "shift": "ability.arbiter.edict.shift_guard",
+    "e": "ability.arbiter.edict.e_constellation_seal",
+    "r": "ability.arbiter.edict.r_orions_grasp",
+    "q": "ability.arbiter.edict.q_firmament_decree",
+    "t": "ability.arbiter.edict.t_event_horizon_step",
+    "1": "ability.arbiter.edict.1_edict_exposure",
+    "2": "ability.arbiter.edict.2_star_lance",
+    "3": "ability.arbiter.edict.3_judgment_collapse",
+    "4": "ability.arbiter.edict.4_gravity_lattice"
+  }
+}

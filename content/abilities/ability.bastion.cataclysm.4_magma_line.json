@@ -1,0 +1,13 @@
+{
+  "id": "ability.bastion.cataclysm.4_magma_line",
+  "specId": "spec.bastion.cataclysm",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 14000,
+  "targeting": { "type": "line", "rangeM": 6.0, "teamFilter": "enemy", "maxTargets": 8, "shape": { "lengthM": 6.0, "widthM": 1.2 } },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.bastion.cataclysm.fissure" },
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.cataclysm.scorched" },
+    { "primitive": "StartCooldown" }
+  ]
+}

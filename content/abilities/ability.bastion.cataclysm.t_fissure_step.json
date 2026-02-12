@@ -1,0 +1,14 @@
+{
+  "id": "ability.bastion.cataclysm.t_fissure_step",
+  "specId": "spec.bastion.cataclysm",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 8200,
+  "targeting": { "type": "line", "rangeM": 4.1, "teamFilter": "enemy", "maxTargets": 6, "shape": { "lengthM": 4.1, "widthM": 1.0 } },
+  "effects": [
+    { "primitive": "ApplyDisplacement" },
+    { "primitive": "SpawnZone", "zoneDefId": "zone.bastion.cataclysm.fissure" },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

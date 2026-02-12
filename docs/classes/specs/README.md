@@ -13,7 +13,7 @@ Planned IDs:
 - `spec.gunslinger.akimbo`
 - `spec.gunslinger.deadeye`
 - `spec.dreadweaver.menace`
-- `spec.dreadweaver.weaver`
+- `spec.dreadweaver.deceiver`
 - `spec.arbiter.aegis`
 - `spec.arbiter.edict`
 

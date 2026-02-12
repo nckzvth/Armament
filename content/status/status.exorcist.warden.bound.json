@@ -1,0 +1,8 @@
+{
+  "id": "status.exorcist.warden.bound",
+  "stackCap": 3,
+  "stackAddRule": "add",
+  "refreshRule": "refresh_duration",
+  "defaultDurationMs": 5000,
+  "dispelTags": []
+}

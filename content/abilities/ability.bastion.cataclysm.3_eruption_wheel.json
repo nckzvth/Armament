@@ -1,0 +1,14 @@
+{
+  "id": "ability.bastion.cataclysm.3_eruption_wheel",
+  "specId": "spec.bastion.cataclysm",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "circle", "rangeM": 3.0, "teamFilter": "enemy", "maxTargets": 8, "shape": { "radiusM": 3.0 } },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 40 },
+    { "primitive": "ConsumeStatus", "statusId": "status.bastion.cataclysm.scorched", "amount": 3 },
+    { "primitive": "DealDamage", "coefficientPermille": 1900, "flat": 9 },
+    { "primitive": "StartCooldown" }
+  ]
+}

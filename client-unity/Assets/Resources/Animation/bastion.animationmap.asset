@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86ac80ea8bdb34190aca24d385fa293e, type: 3}
+  m_Name: bastion.animationmap
+  m_EditorClassIdentifier: Armament.Client::Armament.Client.Animation.ClassAnimationMap
+  idleClipId: HumanM@CombatIdle01
+  moveClipId: HumanM@Run01_Forward
+  blockLoopClipId: HumanM@BlockShield01 - Loop
+  fastAttackClipId: HumanM@AttackShield01
+  heavyAttackClipId: HumanM@AttackShield02
+  stunClipId: HumanM@Stun01
+  hitReactClipId: HumanM@BlockShield01 - Hit
+  deathClipId: HumanM@Stun01
+  lootClipId: HumanM@CombatIdle01
+  interactClipId: HumanM@CombatIdle01
+  fastAttackChainClipIds:
+  - HumanM@AttackShield01
+  - 'RPG-Character@Unarmed-Attack-R1 :: Unarmed-Attack-R1'
+  - HumanM@AttackShield02
+  heavyAttackChainClipIds: []
+  castClipIds:
+  - 'RPG-Character@Unarmed-Attack-R1 :: Unarmed-Attack-R1'
+  - 'RPG-Character@Unarmed-Attack-R2 :: Unarmed-Attack-R2'
+  - 'RPG-Character@Unarmed-Attack-R3 :: Unarmed-Attack-R3'
+  - HumanM@AttackShield02
+  - HumanM@AttackShield01
+  - HumanM@Stun01
+  - HumanM@AttackShield02
+  - HumanM@AttackShield02

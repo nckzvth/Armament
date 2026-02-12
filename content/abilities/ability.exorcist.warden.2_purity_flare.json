@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.warden.2_purity_flare",
+  "specId": "spec.exorcist.warden",
+  "slot": "2",
+  "inputBehavior": "tap",
+  "cooldownMs": 7000,
+  "targeting": { "type": "circle", "rangeM": 3.4, "teamFilter": "enemy", "maxTargets": 8 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 12 },
+    { "primitive": "DealDamage", "coefficientPermille": 1300, "flat": 3 },
+    { "primitive": "Cleanse" },
+    { "primitive": "StartCooldown" }
+  ]
+}

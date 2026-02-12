@@ -1,0 +1,21 @@
+{
+  "id": "spec.arbiter.aegis",
+  "classId": "arbiter",
+  "name": "Aegis",
+  "role": "Healer",
+  "resourceId": "resource.arbiter.aegis.alignment",
+  "canonicalStatusId": "status.arbiter.aegis.starbound",
+  "slots": {
+    "lmb": "ability.arbiter.aegis.lmb_stellar_thread",
+    "rmb": "ability.arbiter.aegis.rmb_astral_sink",
+    "shift": "ability.arbiter.aegis.shift_guard",
+    "e": "ability.arbiter.aegis.e_constellation_seal",
+    "r": "ability.arbiter.aegis.r_orions_grasp",
+    "q": "ability.arbiter.aegis.q_firmament_decree",
+    "t": "ability.arbiter.aegis.t_event_horizon_step",
+    "1": "ability.arbiter.aegis.1_aegis_surge",
+    "2": "ability.arbiter.aegis.2_purifying_starlight",
+    "3": "ability.arbiter.aegis.3_conflux_collapse",
+    "4": "ability.arbiter.aegis.4_firmament_ward"
+  }
+}

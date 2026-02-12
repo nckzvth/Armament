@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.menace.3_suffocation_pulse",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 8000,
+  "targeting": { "type": "circle", "rangeM": 2.7, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 30 },
+    { "primitive": "ConsumeStatus", "statusId": "status.dreadweaver.menace.smoke_mark", "amount": 3 },
+    { "primitive": "DealDamage", "coefficientPermille": 1700, "flat": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.warden.t_aegis_step",
+  "specId": "spec.exorcist.warden",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 5000,
+  "targeting": { "type": "line", "rangeM": 4.5, "teamFilter": "enemy", "maxTargets": 6 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 8 },
+    { "primitive": "DealDamage", "coefficientPermille": 1200, "flat": 1 },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.warden.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

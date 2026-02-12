@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.deceiver.4_dread_execute",
+  "specId": "spec.dreadweaver.deceiver",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "unit", "rangeM": 4.9, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "BreakLink" },
+    { "primitive": "DealDamage", "coefficientPermille": 1850, "flat": 9 },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.deceiver.smoke_mark" },
+    { "primitive": "StartCooldown" }
+  ]
+}

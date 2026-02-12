@@ -1,0 +1,14 @@
+{
+  "id": "ability.bastion.cataclysm.1_shatter_roar",
+  "specId": "spec.bastion.cataclysm",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 14000,
+  "targeting": { "type": "circle", "rangeM": 3.2, "teamFilter": "enemy", "maxTargets": 8, "shape": { "radiusM": 3.2 } },
+  "effects": [
+    { "primitive": "DealDamage", "coefficientPermille": 1325, "flat": 4 },
+    { "primitive": "ApplyStatus", "statusId": "status.bastion.cataclysm.scorched" },
+    { "primitive": "GainResource", "amount": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

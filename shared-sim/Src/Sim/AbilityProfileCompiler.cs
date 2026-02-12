@@ -22,6 +22,8 @@ public sealed class SimAbilityContent
     public string SpecId { get; set; } = string.Empty;
     public string Slot { get; set; } = string.Empty;
     public string InputBehavior { get; set; } = "tap";
+    public string AnimTag { get; set; } = string.Empty;
+    public string VfxTag { get; set; } = string.Empty;
     public int CooldownMs { get; set; }
     public SimTargetingContent Targeting { get; set; } = new();
     public List<SimEffectContent> Effects { get; set; } = new();
@@ -129,6 +131,8 @@ public static class AbilityProfileCompiler
                 Id = content.Id,
                 Slot = slot,
                 InputBehavior = behavior,
+                AnimTag = content.AnimTag ?? string.Empty,
+                VfxTag = content.VfxTag ?? string.Empty,
                 BaseCooldownTicks = baseCooldownTicks,
                 CooldownMinTicks = ResolveDefaultMinCooldown(slot),
                 RangeMilli = rangeMilli,
@@ -136,8 +140,105 @@ public static class AbilityProfileCompiler
                 BuilderGainMilli = builderGainMilli,
                 HasDamageEffect = hasDamage || UsesLegacyDamageFallback(slot),
                 DamageCoefficientPermille = damageCoefficientPermille,
-                DamageFlat = damageFlat
+                DamageFlat = damageFlat,
+                MaxTargets = content.Targeting.MaxTargets <= 0 ? 1 : content.Targeting.MaxTargets,
+                TargetTeam = ResolveTargetTeam(content.Targeting)
             };
+
+            var requiredSpend = 0;
+            for (var i = 0; i < content.Effects.Count; i++)
+            {
+                var source = content.Effects[i];
+                if (!TryMapPrimitive(source.Primitive, out var primitive))
+                {
+                    continue;
+                }
+
+                var mapped = new SimAbilityEffect
+                {
+                    Primitive = primitive,
+                    StatusId = source.StatusId,
+                    ZoneDefId = source.ZoneDefId,
+                    LinkDefId = source.LinkDefId,
+                    Amount = source.Amount.GetValueOrDefault() * 1000,
+                    CoefficientPermille = source.CoefficientPermille.GetValueOrDefault(1000),
+                    Flat = source.Flat.GetValueOrDefault()
+                };
+
+                if (mapped.Primitive == SimAbilityPrimitive.SpendResource)
+                {
+                    var spend = source.Amount.GetValueOrDefault();
+                    if (spend <= 0)
+                    {
+                        spend = ResolveDefaultSpenderCost(slot, rules) / 1000;
+                    }
+
+                    mapped.Amount = spend * 1000;
+                    requiredSpend += mapped.Amount;
+                }
+                else if (mapped.Primitive == SimAbilityPrimitive.GainResource)
+                {
+                    var gain = source.Amount.GetValueOrDefault();
+                    if (gain <= 0)
+                    {
+                        gain = ResolveDefaultBuilderGain(slot, rules);
+                    }
+
+                    mapped.Amount = gain * 1000;
+                }
+                else if (mapped.Primitive == SimAbilityPrimitive.ApplyShield)
+                {
+                    // Default fixed shield if authoring omits amount.
+                    mapped.Amount = source.Amount.GetValueOrDefault(16) * 1000;
+                }
+                else if (mapped.Primitive == SimAbilityPrimitive.ApplyDamageReduction)
+                {
+                    // Amount is percent in content.
+                    mapped.Amount = source.Amount.GetValueOrDefault(20);
+                }
+                else if (mapped.Primitive == SimAbilityPrimitive.ConsumeStatus)
+                {
+                    // Amount is max stacks to consume.
+                    mapped.Amount = source.Amount.GetValueOrDefault(3);
+                }
+
+                definition.Effects.Add(mapped);
+            }
+
+            if (definition.Effects.Count == 0)
+            {
+                // Preserve legacy fallback behavior when content is incomplete.
+                if (spenderCostMilli > 0)
+                {
+                    definition.Effects.Add(new SimAbilityEffect
+                    {
+                        Primitive = SimAbilityPrimitive.SpendResource,
+                        Amount = spenderCostMilli
+                    });
+                    requiredSpend += spenderCostMilli;
+                }
+
+                if (builderGainMilli > 0)
+                {
+                    definition.Effects.Add(new SimAbilityEffect
+                    {
+                        Primitive = SimAbilityPrimitive.GainResource,
+                        Amount = builderGainMilli
+                    });
+                }
+
+                if (definition.HasDamageEffect)
+                {
+                    definition.Effects.Add(new SimAbilityEffect
+                    {
+                        Primitive = SimAbilityPrimitive.DealDamage,
+                        CoefficientPermille = definition.DamageCoefficientPermille,
+                        Flat = definition.DamageFlat
+                    });
+                }
+            }
+
+            definition.RequiredSpenderCostMilli = requiredSpend;
 
             profile.AbilitiesByFlag[SimAbilityProfiles.MapTriggerFlag(slot)] = definition;
         }
@@ -241,5 +342,48 @@ public static class AbilityProfileCompiler
     private static bool UsesLegacyDamageFallback(SimAbilitySlot slot)
     {
         return slot != SimAbilitySlot.Shift;
+    }
+
+    private static bool TryMapPrimitive(string primitive, out SimAbilityPrimitive mapped)
+    {
+        mapped = primitive.ToLowerInvariant() switch
+        {
+            "startcooldown" => SimAbilityPrimitive.StartCooldown,
+            "spendresource" => SimAbilityPrimitive.SpendResource,
+            "gainresource" => SimAbilityPrimitive.GainResource,
+            "dealdamage" => SimAbilityPrimitive.DealDamage,
+            "applyshield" => SimAbilityPrimitive.ApplyShield,
+            "applydr" => SimAbilityPrimitive.ApplyDamageReduction,
+            "applystatus" => SimAbilityPrimitive.ApplyStatus,
+            "consumestatus" => SimAbilityPrimitive.ConsumeStatus,
+            "cleanse" => SimAbilityPrimitive.Cleanse,
+            "taunt" => SimAbilityPrimitive.Taunt,
+            "applycc" => SimAbilityPrimitive.ApplyCc,
+            "spawnzone" => SimAbilityPrimitive.SpawnZone,
+            "hitscantrace" => SimAbilityPrimitive.HitscanTrace,
+            "fireprojectile" => SimAbilityPrimitive.FireProjectile,
+            "addthreat" => SimAbilityPrimitive.AddThreat,
+            "createlink" => SimAbilityPrimitive.CreateLink,
+            "breaklink" => SimAbilityPrimitive.BreakLink,
+            "heal" => SimAbilityPrimitive.Heal,
+            _ => SimAbilityPrimitive.None
+        };
+
+        return mapped != SimAbilityPrimitive.None;
+    }
+
+    private static SimTargetTeam ResolveTargetTeam(SimTargetingContent targeting)
+    {
+        if (targeting.Type.Equals("self", StringComparison.OrdinalIgnoreCase))
+        {
+            return SimTargetTeam.Self;
+        }
+
+        return targeting.TeamFilter.ToLowerInvariant() switch
+        {
+            "ally" => SimTargetTeam.Ally,
+            "any" => SimTargetTeam.Any,
+            _ => SimTargetTeam.Enemy
+        };
     }
 }

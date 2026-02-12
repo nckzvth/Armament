@@ -1,0 +1,17 @@
+{
+  "id": "ability.dreadweaver.deceiver.e_smoke_step",
+  "specId": "spec.dreadweaver.deceiver",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "animTag": "dreadweaver.deceiver.e_smoke_step",
+  "vfxTag": "vfx.dreadweaver.deceiver.smoke_step",
+  "cooldownMs": 4600,
+  "targeting": { "type": "line", "rangeM": 3.8, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1450, "flat": 5 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.deceiver.smoke_mark" },
+    { "primitive": "StartCooldown" }
+  ]
+}

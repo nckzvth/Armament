@@ -1,0 +1,15 @@
+{
+  "id": "ability.arbiter.edict.3_judgment_collapse",
+  "specId": "spec.arbiter.edict",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "cooldownMs": 18000,
+  "targeting": { "type": "circle", "rangeM": 3.5, "teamFilter": "enemy", "maxTargets": 8, "shape": { "radiusM": 3.5 } },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 40 },
+    { "primitive": "BreakLink" },
+    { "primitive": "ConsumeStatus", "statusId": "status.arbiter.edict.decreed", "amount": 3 },
+    { "primitive": "DealDamage", "coefficientPermille": 2000, "flat": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

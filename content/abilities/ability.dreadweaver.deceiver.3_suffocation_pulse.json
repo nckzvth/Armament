@@ -1,0 +1,16 @@
+{
+  "id": "ability.dreadweaver.deceiver.3_suffocation_pulse",
+  "specId": "spec.dreadweaver.deceiver",
+  "slot": "3",
+  "inputBehavior": "tap",
+  "animTag": "dreadweaver.deceiver.3_suffocation_pulse",
+  "vfxTag": "vfx.dreadweaver.deceiver.pulse",
+  "cooldownMs": 7600,
+  "targeting": { "type": "circle", "rangeM": 3.2, "teamFilter": "enemy", "maxTargets": 5 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 30 },
+    { "primitive": "ConsumeStatus", "statusId": "status.dreadweaver.deceiver.smoke_mark", "amount": 3 },
+    { "primitive": "DealDamage", "coefficientPermille": 1950, "flat": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

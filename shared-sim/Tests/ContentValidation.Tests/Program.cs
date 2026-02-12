@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Armament.SharedSim.Protocol;
 using Armament.SharedSim.Sim;
 
 var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
@@ -23,6 +24,11 @@ var traces = LoadById<TraceDefinition>(Path.Combine(contentRoot, "traces"), fail
 ValidateSpecCoverage(specs, abilities, statuses, failures);
 ValidateAbilities(abilities, statuses, zones, links, projectiles, traces, failures);
 ValidateProfileCompilation(specs, abilities, failures);
+ValidateBastionCataclysmMappings(specs, abilities, failures);
+ValidateTempestSkill3Mapping(specs, abilities, failures);
+ValidateDreadweaverDeceiverMappings(specs, abilities, failures);
+ValidateArbiterAegisMappings(specs, abilities, failures);
+ValidateArbiterEdictMappings(specs, abilities, failures);
 
 if (failures.Count > 0)
 {
@@ -287,6 +293,235 @@ static void ValidateProfileCompilation(
         {
             failures.Add($"Spec '{spec.Id}' compiled to empty ability profile.");
         }
+    }
+}
+
+static void ValidateTempestSkill3Mapping(
+    IReadOnlyDictionary<string, SimSpecContent> specs,
+    IReadOnlyDictionary<string, SimAbilityContent> abilities,
+    List<string> failures)
+{
+    const string specId = "spec.tidebinder.tempest";
+    if (!specs.TryGetValue(specId, out var spec))
+    {
+        failures.Add($"Missing required spec '{specId}'.");
+        return;
+    }
+
+    if (!AbilityProfileCompiler.TryCompile(spec, abilities, OverworldSimRules.Default, out var profile, out var error))
+    {
+        failures.Add($"Spec '{specId}' failed profile compilation for skill3 wiring check: {error}");
+        return;
+    }
+
+    if (!profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill7, out var skill3))
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill7 (key 3).");
+        return;
+    }
+
+    if (!string.Equals(skill3.Id, "ability.tidebinder.tempest.3_whirlpool_collapse", StringComparison.Ordinal))
+    {
+        failures.Add($"Spec '{specId}' key 3 maps to '{skill3.Id}' instead of 'ability.tidebinder.tempest.3_whirlpool_collapse'.");
+    }
+
+    var hasConsume = skill3.Effects.Exists(x =>
+        x.Primitive == SimAbilityPrimitive.ConsumeStatus &&
+        string.Equals(x.StatusId, "status.tidebinder.tempest.soaked", StringComparison.Ordinal));
+    if (!hasConsume)
+    {
+        failures.Add($"Spec '{specId}' key 3 ability missing ConsumeStatus(status.tidebinder.tempest.soaked).");
+    }
+}
+
+static void ValidateBastionCataclysmMappings(
+    IReadOnlyDictionary<string, SimSpecContent> specs,
+    IReadOnlyDictionary<string, SimAbilityContent> abilities,
+    List<string> failures)
+{
+    const string specId = "spec.bastion.cataclysm";
+    if (!specs.TryGetValue(specId, out var spec))
+    {
+        return;
+    }
+
+    if (!AbilityProfileCompiler.TryCompile(spec, abilities, OverworldSimRules.Default, out var profile, out var error))
+    {
+        failures.Add($"Spec '{specId}' failed profile compilation for mapping checks: {error}");
+        return;
+    }
+
+    if (!profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill7, out var skill3))
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill7 (key 3).");
+    }
+    else
+    {
+        var hasConsume = skill3.Effects.Exists(x =>
+            x.Primitive == SimAbilityPrimitive.ConsumeStatus &&
+            string.Equals(x.StatusId, "status.bastion.cataclysm.scorched", StringComparison.Ordinal));
+        if (!hasConsume)
+        {
+            failures.Add($"Spec '{specId}' key 3 ability missing ConsumeStatus(status.bastion.cataclysm.scorched).");
+        }
+    }
+
+    if (!profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill2, out var skillR))
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill2 (key R).");
+    }
+    else
+    {
+        var hasSpawnZone = skillR.Effects.Exists(x =>
+            x.Primitive == SimAbilityPrimitive.SpawnZone &&
+            string.Equals(x.ZoneDefId, "zone.bastion.cataclysm.fissure", StringComparison.Ordinal));
+        if (!hasSpawnZone)
+        {
+            failures.Add($"Spec '{specId}' key R ability missing SpawnZone(zone.bastion.cataclysm.fissure).");
+        }
+    }
+}
+
+static void ValidateDreadweaverDeceiverMappings(
+    IReadOnlyDictionary<string, SimSpecContent> specs,
+    IReadOnlyDictionary<string, SimAbilityContent> abilities,
+    List<string> failures)
+{
+    const string specId = "spec.dreadweaver.deceiver";
+    if (!specs.TryGetValue(specId, out var spec))
+    {
+        return;
+    }
+
+    if (!AbilityProfileCompiler.TryCompile(spec, abilities, OverworldSimRules.Default, out var profile, out var error))
+    {
+        failures.Add($"Spec '{specId}' failed profile compilation for mapping checks: {error}");
+        return;
+    }
+
+    if (!profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill2, out var skillR))
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill2 (key R).");
+    }
+    else
+    {
+        var hasLinkCreate = skillR.Effects.Exists(x =>
+            x.Primitive == SimAbilityPrimitive.CreateLink &&
+            string.Equals(x.LinkDefId, "link.dreadweaver.deceiver.chain_snare", StringComparison.Ordinal));
+        if (!hasLinkCreate)
+        {
+            failures.Add($"Spec '{specId}' key R ability missing CreateLink(link.dreadweaver.deceiver.chain_snare).");
+        }
+    }
+
+    if (!profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill7, out var skill3))
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill7 (key 3).");
+        return;
+    }
+
+    var hasConsume = skill3.Effects.Exists(x =>
+        x.Primitive == SimAbilityPrimitive.ConsumeStatus &&
+        string.Equals(x.StatusId, "status.dreadweaver.deceiver.smoke_mark", StringComparison.Ordinal));
+    if (!hasConsume)
+    {
+        failures.Add($"Spec '{specId}' key 3 ability missing ConsumeStatus(status.dreadweaver.deceiver.smoke_mark).");
+    }
+}
+
+static void ValidateArbiterAegisMappings(
+    IReadOnlyDictionary<string, SimSpecContent> specs,
+    IReadOnlyDictionary<string, SimAbilityContent> abilities,
+    List<string> failures)
+{
+    const string specId = "spec.arbiter.aegis";
+    if (!specs.TryGetValue(specId, out var spec))
+    {
+        return;
+    }
+
+    if (!AbilityProfileCompiler.TryCompile(spec, abilities, OverworldSimRules.Default, out var profile, out var error))
+    {
+        failures.Add($"Spec '{specId}' failed profile compilation for mapping checks: {error}");
+        return;
+    }
+
+    if (profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill2, out var skillR))
+    {
+        var hasLinkCreate = skillR.Effects.Exists(x =>
+            x.Primitive == SimAbilityPrimitive.CreateLink &&
+            string.Equals(x.LinkDefId, "link.arbiter.aegis.constellation_link", StringComparison.Ordinal));
+        if (!hasLinkCreate)
+        {
+            failures.Add($"Spec '{specId}' key R ability missing CreateLink(link.arbiter.aegis.constellation_link).");
+        }
+    }
+    else
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill2 (key R).");
+    }
+
+    if (profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill7, out var skill3))
+    {
+        var hasConsume = skill3.Effects.Exists(x =>
+            x.Primitive == SimAbilityPrimitive.ConsumeStatus &&
+            string.Equals(x.StatusId, "status.arbiter.aegis.starbound", StringComparison.Ordinal));
+        if (!hasConsume)
+        {
+            failures.Add($"Spec '{specId}' key 3 ability missing ConsumeStatus(status.arbiter.aegis.starbound).");
+        }
+    }
+    else
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill7 (key 3).");
+    }
+}
+
+static void ValidateArbiterEdictMappings(
+    IReadOnlyDictionary<string, SimSpecContent> specs,
+    IReadOnlyDictionary<string, SimAbilityContent> abilities,
+    List<string> failures)
+{
+    const string specId = "spec.arbiter.edict";
+    if (!specs.TryGetValue(specId, out var spec))
+    {
+        return;
+    }
+
+    if (!AbilityProfileCompiler.TryCompile(spec, abilities, OverworldSimRules.Default, out var profile, out var error))
+    {
+        failures.Add($"Spec '{specId}' failed profile compilation for mapping checks: {error}");
+        return;
+    }
+
+    if (profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill2, out var skillR))
+    {
+        var hasLinkCreate = skillR.Effects.Exists(x =>
+            x.Primitive == SimAbilityPrimitive.CreateLink &&
+            string.Equals(x.LinkDefId, "link.arbiter.edict.constellation_link", StringComparison.Ordinal));
+        if (!hasLinkCreate)
+        {
+            failures.Add($"Spec '{specId}' key R ability missing CreateLink(link.arbiter.edict.constellation_link).");
+        }
+    }
+    else
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill2 (key R).");
+    }
+
+    if (profile.AbilitiesByFlag.TryGetValue(InputActionFlags.Skill7, out var skill3))
+    {
+        var hasConsume = skill3.Effects.Exists(x =>
+            x.Primitive == SimAbilityPrimitive.ConsumeStatus &&
+            string.Equals(x.StatusId, "status.arbiter.edict.decreed", StringComparison.Ordinal));
+        if (!hasConsume)
+        {
+            failures.Add($"Spec '{specId}' key 3 ability missing ConsumeStatus(status.arbiter.edict.decreed).");
+        }
+    }
+    else
+    {
+        failures.Add($"Spec '{specId}' has no ability bound to input flag Skill7 (key 3).");
     }
 }
 

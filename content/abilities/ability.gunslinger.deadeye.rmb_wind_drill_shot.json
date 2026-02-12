@@ -1,0 +1,12 @@
+{
+  "id": "ability.gunslinger.deadeye.rmb_wind_drill_shot",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 700,
+  "targeting": { "type": "line", "rangeM": 8.5, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1500, "flat": 6 }
+  ]
+}

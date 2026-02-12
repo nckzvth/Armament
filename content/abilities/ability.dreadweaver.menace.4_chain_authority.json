@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.menace.4_chain_authority",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 11000,
+  "targeting": { "type": "cone", "rangeM": 3.2, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "BreakLink" },
+    { "primitive": "DealDamage", "coefficientPermille": 1200, "flat": 5 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ability.gunslinger.deadeye.1_rangefinder_volley",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 4500,
+  "targeting": { "type": "line", "rangeM": 9.2, "teamFilter": "enemy", "maxTargets": 3 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 6 },
+    { "primitive": "DealDamage", "coefficientPermille": 1450, "flat": 5 },
+    { "primitive": "StartCooldown" }
+  ]
+}

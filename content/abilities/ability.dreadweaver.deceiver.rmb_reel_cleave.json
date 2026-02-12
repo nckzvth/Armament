@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.deceiver.rmb_reel_cleave",
+  "specId": "spec.dreadweaver.deceiver",
+  "slot": "rmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 360,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.5, "teamFilter": "enemy", "maxTargets": 2 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1600, "flat": 3 },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.deceiver.smoke_mark" },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.inquisitor.4_relentless_brand",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 10000,
+  "targeting": { "type": "nearest_in_range", "rangeM": 4.5, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 14 },
+    { "primitive": "DealDamage", "coefficientPermille": 1700, "flat": 7 },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.inquisitor.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

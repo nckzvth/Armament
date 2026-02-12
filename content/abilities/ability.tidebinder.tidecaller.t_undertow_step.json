@@ -1,0 +1,13 @@
+{
+  "id": "ability.tidebinder.tidecaller.t_undertow_step",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 5000,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "Heal", "coefficientPermille": 1000, "flat": 12 },
+    { "primitive": "GainResource", "amount": 8 },
+    { "primitive": "StartCooldown" }
+  ]
+}

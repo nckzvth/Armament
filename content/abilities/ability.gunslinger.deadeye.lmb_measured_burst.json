@@ -1,0 +1,12 @@
+{
+  "id": "ability.gunslinger.deadeye.lmb_measured_burst",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "lmb",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 120,
+  "targeting": { "type": "nearest_in_range", "rangeM": 7.5, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "GainResource", "amount": 4 },
+    { "primitive": "DealDamage", "coefficientPermille": 780, "flat": 1 }
+  ]
+}

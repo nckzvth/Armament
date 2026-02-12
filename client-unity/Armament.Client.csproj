@@ -55,10 +55,13 @@
     <Compile Include="Assets/Scripts/SharedSim/Sim/AbilityProfileCompiler.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Protocol/ProtocolCodec.cs" />
     <Compile Include="Assets/Scripts/Networking/CharacterSlotStorage.cs" />
+    <Compile Include="Assets/Scripts/Animation/ClassAnimationMap.cs" />
+    <Compile Include="Assets/Scripts/Animation/LocalViewAtlasAnimator.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Protocol/Quantization.cs" />
     <Compile Include="Assets/Scripts/Networking/WorldDebugRenderer.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Sim/OverworldSim.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Protocol/Messages.cs" />
+    <Compile Include="Assets/Scripts/Animation/AtlasAnimationLibrary.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Sim/CharacterModel.cs" />
     <Compile Include="Assets/Scripts/SharedSim/Sim/AbilityRunner.cs" />
     <Compile Include="Assets/Scripts/Networking/DebugHud.cs" />

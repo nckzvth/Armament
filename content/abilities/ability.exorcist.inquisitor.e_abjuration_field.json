@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.inquisitor.e_abjuration_field",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "e",
+  "inputBehavior": "tap",
+  "cooldownMs": 6500,
+  "targeting": { "type": "point", "rangeM": 3.5, "teamFilter": "enemy", "maxTargets": 8 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 12 },
+    { "primitive": "SpawnZone", "zoneDefId": "zone.exorcist.inquisitor.abjuration_field" },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.inquisitor.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

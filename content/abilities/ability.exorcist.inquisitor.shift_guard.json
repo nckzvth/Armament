@@ -1,0 +1,12 @@
+{
+  "id": "ability.exorcist.inquisitor.shift_guard",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "shift",
+  "inputBehavior": "hold_repeat",
+  "cooldownMs": 0,
+  "targeting": { "type": "self", "rangeM": 0, "teamFilter": "ally", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "ApplyDR" },
+    { "primitive": "GainResource", "amount": 3 }
+  ]
+}

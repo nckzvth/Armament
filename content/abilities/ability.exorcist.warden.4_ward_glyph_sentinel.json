@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.warden.4_ward_glyph_sentinel",
+  "specId": "spec.exorcist.warden",
+  "slot": "4",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "line", "rangeM": 4.8, "teamFilter": "enemy", "maxTargets": 8 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 16 },
+    { "primitive": "DealDamage", "coefficientPermille": 1650, "flat": 6 },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.warden.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

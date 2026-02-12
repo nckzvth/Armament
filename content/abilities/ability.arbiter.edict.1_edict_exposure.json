@@ -1,0 +1,13 @@
+{
+  "id": "ability.arbiter.edict.1_edict_exposure",
+  "specId": "spec.arbiter.edict",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 14000,
+  "targeting": { "type": "cone", "rangeM": 3.4, "teamFilter": "enemy", "maxTargets": 8, "shape": { "angleDeg": 60.0, "lengthM": 3.4 } },
+  "effects": [
+    { "primitive": "ApplyStatus", "statusId": "status.arbiter.edict.decreed" },
+    { "primitive": "DealDamage", "coefficientPermille": 1380, "flat": 4 },
+    { "primitive": "StartCooldown" }
+  ]
+}

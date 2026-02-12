@@ -1,0 +1,15 @@
+{
+  "id": "ability.exorcist.warden.1_rite_of_accusation",
+  "specId": "spec.exorcist.warden",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 6000,
+  "targeting": { "type": "circle", "rangeM": 3.2, "teamFilter": "enemy", "maxTargets": 8 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 8 },
+    { "primitive": "DealDamage", "coefficientPermille": 1250, "flat": 2 },
+    { "primitive": "Taunt" },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.warden.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

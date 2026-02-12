@@ -24,3 +24,6 @@
 .vscode/
 *.user
 *.suo
+
+# Animation/source archive folders (do not import into runtime pipeline)
+**/bastion.archive/

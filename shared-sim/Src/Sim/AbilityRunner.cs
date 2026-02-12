@@ -32,6 +32,8 @@ public sealed class SimAbilityDefinition
     public string Id { get; set; } = string.Empty;
     public SimAbilitySlot Slot { get; set; }
     public SimAbilityInputBehavior InputBehavior { get; set; } = SimAbilityInputBehavior.Tap;
+    public string AnimTag { get; set; } = string.Empty;
+    public string VfxTag { get; set; } = string.Empty;
     public int BaseCooldownTicks { get; set; }
     public int CooldownMinTicks { get; set; }
     public int RangeMilli { get; set; }
@@ -40,6 +42,52 @@ public sealed class SimAbilityDefinition
     public bool HasDamageEffect { get; set; } = true;
     public int DamageCoefficientPermille { get; set; } = 1000;
     public int DamageFlat { get; set; }
+    public int MaxTargets { get; set; } = 1;
+    public SimTargetTeam TargetTeam { get; set; } = SimTargetTeam.Enemy;
+    public List<SimAbilityEffect> Effects { get; } = new();
+    public int RequiredSpenderCostMilli { get; set; }
+}
+
+public enum SimTargetTeam : byte
+{
+    Enemy = 1,
+    Ally = 2,
+    Any = 3,
+    Self = 4
+}
+
+public enum SimAbilityPrimitive : byte
+{
+    None = 0,
+    StartCooldown = 1,
+    SpendResource = 2,
+    GainResource = 3,
+    DealDamage = 4,
+    ApplyShield = 5,
+    ApplyDamageReduction = 6,
+    ApplyStatus = 7,
+    ConsumeStatus = 8,
+    Cleanse = 9,
+    Taunt = 10,
+    ApplyCc = 11,
+    SpawnZone = 12,
+    HitscanTrace = 13,
+    FireProjectile = 14,
+    AddThreat = 15,
+    CreateLink = 16,
+    BreakLink = 17,
+    Heal = 18
+}
+
+public sealed class SimAbilityEffect
+{
+    public SimAbilityPrimitive Primitive { get; set; }
+    public string? StatusId { get; set; }
+    public string? ZoneDefId { get; set; }
+    public string? LinkDefId { get; set; }
+    public int Amount { get; set; }
+    public int CoefficientPermille { get; set; }
+    public int Flat { get; set; }
 }
 
 public sealed class SimAbilityProfile
@@ -138,6 +186,11 @@ public static class SimAbilityProfiles
 
 internal static class AbilityRunner
 {
+    private const byte CastResultSuccess = 1;
+    private const byte CastResultNoTarget = 2;
+    private const byte CastResultCooldown = 3;
+    private const byte CastResultInsufficientResource = 4;
+
     public static void ExecutePlayerCombatActions(OverworldSimState state, SimEntityState player, in OverworldSimRules rules)
     {
         var profile = state.ResolveAbilityProfile(player.AbilityProfileId);
@@ -154,41 +207,352 @@ internal static class AbilityRunner
 
     private static void TryExecute(OverworldSimState state, SimEntityState player, in OverworldSimRules rules, SimAbilityDefinition ability)
     {
+        var castVfxCode = ComputeVfxCode(ability);
         if (GetCooldownTicks(player, ability.Slot) > 0)
         {
+            SetCastFeedback(player, ability.Slot, CastResultCooldown, ability.TargetTeam, 0, castVfxCode);
             return;
         }
 
-        if (ability.SpenderCostMilli > 0 && player.SpenderResource < ability.SpenderCostMilli)
+        if (ability.RequiredSpenderCostMilli > 0 && player.SpenderResource < ability.RequiredSpenderCostMilli)
         {
+            SetCastFeedback(player, ability.Slot, CastResultInsufficientResource, ability.TargetTeam, 0, castVfxCode);
             return;
         }
 
-        if (ability.HasDamageEffect)
-        {
-            var enemy = OverworldSimulator.FindNearestEnemyInRange(
-                state,
-                player.PositionXMilli,
-                player.PositionYMilli,
-                ability.RangeMilli);
+        var consumedStatusStacks = 0;
+        var targetEnemies = new List<SimEntityState>(8);
+        var prevalidatedTargets = false;
 
-            if (enemy is not null)
+        if (AbilityRequiresTargets(ability))
+        {
+            ResolveTargets(state, player, ability, targetEnemies);
+            if (targetEnemies.Count == 0)
             {
-                OverworldSimulator.ApplyDamage(state, enemy, ComputeDamage(ability, player), player);
+                SetCastFeedback(player, ability.Slot, CastResultNoTarget, ability.TargetTeam, 0, castVfxCode);
+                return;
+            }
+
+            prevalidatedTargets = true;
+        }
+
+        if (ability.Effects.Count == 0)
+        {
+            // Legacy fallback for builtin abilities.
+            if (ability.HasDamageEffect)
+            {
+                var primaryEnemy = OverworldSimulator.FindNearestEnemyInRange(state, player.PositionXMilli, player.PositionYMilli, ability.RangeMilli);
+                if (primaryEnemy is not null)
+                {
+                    OverworldSimulator.ApplyDamage(state, primaryEnemy, ComputeDamage(ability, player), player, blockedByGuard: false);
+                }
+            }
+
+            if (ability.BuilderGainMilli > 0)
+            {
+                player.BuilderResource = Math.Clamp(
+                    player.BuilderResource + ability.BuilderGainMilli,
+                    0,
+                    player.Character.DerivedStats.MaxBuilderResource * 1000);
+            }
+
+            if (ability.SpenderCostMilli > 0)
+            {
+                player.SpenderResource -= ability.SpenderCostMilli;
+            }
+        }
+        else
+        {
+            for (var i = 0; i < ability.Effects.Count; i++)
+            {
+                var effect = ability.Effects[i];
+                switch (effect.Primitive)
+                {
+                    case SimAbilityPrimitive.SpendResource:
+                        {
+                            if (effect.Amount > 0)
+                            {
+                                player.SpenderResource = Math.Max(0, player.SpenderResource - effect.Amount);
+                            }
+
+                            break;
+                        }
+                    case SimAbilityPrimitive.GainResource:
+                        {
+                            if (effect.Amount > 0)
+                            {
+                                player.BuilderResource = Math.Clamp(
+                                    player.BuilderResource + effect.Amount,
+                                    0,
+                                    player.Character.DerivedStats.MaxBuilderResource * 1000);
+                            }
+
+                            break;
+                        }
+                    case SimAbilityPrimitive.DealDamage:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0)
+                            {
+                                break;
+                            }
+
+                            var computed = ComputeDamage(ability, player);
+                            if (effect.CoefficientPermille > 0)
+                            {
+                                computed = computed * effect.CoefficientPermille / 1000;
+                            }
+
+                            computed += effect.Flat;
+                            if (consumedStatusStacks > 0)
+                            {
+                                // Status-consume payoff baseline until full effect scripting lands.
+                                computed += consumedStatusStacks * 3;
+                            }
+
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                OverworldSimulator.ApplyDamage(state, targetEnemies[targetIndex], computed, player, blockedByGuard: false);
+                            }
+                            break;
+                        }
+                    case SimAbilityPrimitive.HitscanTrace:
+                    case SimAbilityPrimitive.FireProjectile:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0)
+                            {
+                                break;
+                            }
+
+                            var computed = ComputeDamage(ability, player);
+                            if (effect.CoefficientPermille > 0)
+                            {
+                                computed = computed * effect.CoefficientPermille / 1000;
+                            }
+
+                            computed += effect.Flat;
+                            if (consumedStatusStacks > 0)
+                            {
+                                computed += consumedStatusStacks * 3;
+                            }
+
+                            // Trace/projectile are resolved authoritatively as deterministic multi-target hits for now.
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                OverworldSimulator.ApplyDamage(state, targetEnemies[targetIndex], computed, player, blockedByGuard: false);
+                            }
+
+                            break;
+                        }
+                    case SimAbilityPrimitive.ApplyShield:
+                        {
+                            var shieldAmount = effect.Amount > 0 ? effect.Amount : 16_000;
+                            player.ShieldMilli = Math.Min(120_000, player.ShieldMilli + shieldAmount);
+                            break;
+                        }
+                    case SimAbilityPrimitive.Heal:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0)
+                            {
+                                break;
+                            }
+
+                            var heal = effect.Flat;
+                            if (heal <= 0)
+                            {
+                                heal = 8;
+                            }
+
+                            if (effect.CoefficientPermille > 0)
+                            {
+                                heal += player.Character.DerivedStats.SkillPotencyPermille * effect.CoefficientPermille / 100000;
+                            }
+
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                var target = targetEnemies[targetIndex];
+                                var maxHealth = target.Character.DerivedStats.MaxHealth;
+                                target.Health = Math.Clamp(target.Health + heal, 0, maxHealth);
+                            }
+
+                            break;
+                        }
+                    case SimAbilityPrimitive.ApplyDamageReduction:
+                        {
+                            var reductionPercent = effect.Amount > 0 ? Math.Min(effect.Amount, 90) : 20;
+                            var reductionPermille = reductionPercent * 10;
+                            if (reductionPermille > player.DamageReductionPermille)
+                            {
+                                player.DamageReductionPermille = reductionPermille;
+                            }
+
+                            player.DamageReductionTicks = Math.Max(player.DamageReductionTicks, 120);
+                            break;
+                        }
+                    case SimAbilityPrimitive.ApplyStatus:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0 || string.IsNullOrWhiteSpace(effect.StatusId))
+                            {
+                                break;
+                            }
+
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                OverworldSimulator.ApplyStatus(targetEnemies[targetIndex], effect.StatusId!, 1, 300);
+                            }
+                            break;
+                        }
+                    case SimAbilityPrimitive.ConsumeStatus:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0 || string.IsNullOrWhiteSpace(effect.StatusId))
+                            {
+                                break;
+                            }
+
+                            var maxConsume = effect.Amount > 0 ? effect.Amount : 3;
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                var consumed = OverworldSimulator.ConsumeStatus(targetEnemies[targetIndex], effect.StatusId!, maxConsume);
+                                if (consumed > consumedStatusStacks)
+                                {
+                                    consumedStatusStacks = consumed;
+                                }
+                            }
+                            break;
+                        }
+                    case SimAbilityPrimitive.Cleanse:
+                        {
+                            OverworldSimulator.Cleanse(player);
+                            break;
+                        }
+                    case SimAbilityPrimitive.Taunt:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0)
+                            {
+                                break;
+                            }
+
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                OverworldSimulator.ApplyTaunt(state, targetEnemies[targetIndex], player.EntityId, 120);
+                            }
+                            break;
+                        }
+                    case SimAbilityPrimitive.AddThreat:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0)
+                            {
+                                break;
+                            }
+
+                            var threatAmount = effect.Amount > 0 ? effect.Amount : 1000;
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                OverworldSimulator.ApplyThreat(targetEnemies[targetIndex], player.EntityId, threatAmount);
+                            }
+
+                            break;
+                        }
+                    case SimAbilityPrimitive.ApplyCc:
+                        {
+                            if (!prevalidatedTargets)
+                            {
+                                ResolveTargets(state, player, ability, targetEnemies);
+                            }
+                            if (targetEnemies.Count == 0)
+                            {
+                                break;
+                            }
+
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                OverworldSimulator.ApplyStatus(targetEnemies[targetIndex], "status.generic.slow", 1, 90);
+                            }
+                            break;
+                        }
+                    case SimAbilityPrimitive.SpawnZone:
+                        {
+                            if (string.IsNullOrWhiteSpace(effect.ZoneDefId))
+                            {
+                                break;
+                            }
+
+                            OverworldSimulator.TrySpawnZone(state, player, effect.ZoneDefId!, player.PositionXMilli, player.PositionYMilli);
+                            break;
+                        }
+                    case SimAbilityPrimitive.CreateLink:
+                        {
+                            if (string.IsNullOrWhiteSpace(effect.LinkDefId))
+                            {
+                                break;
+                            }
+
+                            ResolveTargets(state, player, ability, targetEnemies);
+                            if (targetEnemies.Count == 0)
+                            {
+                                var fallbackTarget = OverworldSimulator.FindNearestEnemyInRange(
+                                    state,
+                                    player.PositionXMilli,
+                                    player.PositionYMilli,
+                                    rules.WorldBoundaryMilli);
+                                if (fallbackTarget is not null)
+                                {
+                                    targetEnemies.Add(fallbackTarget);
+                                }
+                            }
+
+                            if (targetEnemies.Count == 0)
+                            {
+                                break;
+                            }
+
+                            for (var targetIndex = 0; targetIndex < targetEnemies.Count; targetIndex++)
+                            {
+                                OverworldSimulator.TryCreateLink(state, player, targetEnemies[targetIndex], effect.LinkDefId!);
+                            }
+
+                            break;
+                        }
+                    case SimAbilityPrimitive.BreakLink:
+                        {
+                            OverworldSimulator.BreakLinksOwnedBy(state, player.EntityId);
+                            break;
+                        }
+                }
             }
         }
 
-        if (ability.BuilderGainMilli > 0)
+        if (consumedStatusStacks > 0)
         {
-            player.BuilderResource = Math.Clamp(
-                player.BuilderResource + ability.BuilderGainMilli,
-                0,
-                player.Character.DerivedStats.MaxBuilderResource * 1000);
-        }
-
-        if (ability.SpenderCostMilli > 0)
-        {
-            player.SpenderResource -= ability.SpenderCostMilli;
+            player.DebugLastConsumedStatusStacks = consumedStatusStacks;
+            player.DebugLastConsumedStatusTicks = 60;
         }
 
         var cooldownTicks = OverworldSimulator.ScaleByAttackSpeed(
@@ -196,7 +560,70 @@ internal static class AbilityRunner
             player.Character.DerivedStats.AttackSpeedPermille,
             ability.CooldownMinTicks);
 
+        var affectedCount = ability.TargetTeam == SimTargetTeam.Self ? 1 : Math.Clamp(targetEnemies.Count, 0, byte.MaxValue);
         SetCooldownTicks(player, ability.Slot, cooldownTicks);
+        SetCastFeedback(player, ability.Slot, CastResultSuccess, ability.TargetTeam, affectedCount, castVfxCode);
+    }
+
+    private static bool AbilityRequiresTargets(SimAbilityDefinition ability)
+    {
+        if (ability.Effects.Count == 0 && ability.HasDamageEffect && ability.TargetTeam == SimTargetTeam.Enemy)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < ability.Effects.Count; i++)
+        {
+            switch (ability.Effects[i].Primitive)
+            {
+                case SimAbilityPrimitive.DealDamage:
+                case SimAbilityPrimitive.HitscanTrace:
+                case SimAbilityPrimitive.FireProjectile:
+                case SimAbilityPrimitive.Heal:
+                case SimAbilityPrimitive.ApplyStatus:
+                case SimAbilityPrimitive.ConsumeStatus:
+                case SimAbilityPrimitive.Taunt:
+                case SimAbilityPrimitive.AddThreat:
+                case SimAbilityPrimitive.ApplyCc:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void SetCastFeedback(
+        SimEntityState player,
+        SimAbilitySlot slot,
+        byte result,
+        SimTargetTeam targetTeam,
+        int affectedCount,
+        ushort vfxCode)
+    {
+        player.DebugLastCastSlotCode = (byte)slot;
+        player.DebugLastCastResultCode = result;
+        player.DebugLastCastTargetTeamCode = (byte)targetTeam;
+        player.DebugLastCastAffectedCount = Math.Clamp(affectedCount, 0, byte.MaxValue);
+        player.DebugLastCastVfxCode = vfxCode;
+        player.DebugLastCastFeedbackTicks = 45;
+    }
+
+    private static ushort ComputeVfxCode(SimAbilityDefinition ability)
+    {
+        var source = string.IsNullOrWhiteSpace(ability.VfxTag) ? ability.Id : ability.VfxTag;
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return 0;
+        }
+
+        var hash = 2166136261u;
+        for (var i = 0; i < source.Length; i++)
+        {
+            hash ^= source[i];
+            hash *= 16777619u;
+        }
+
+        return (ushort)(hash & 0xFFFF);
     }
 
     private static int ComputeDamage(SimAbilityDefinition ability, SimEntityState player)
@@ -222,6 +649,56 @@ internal static class AbilityRunner
         }
 
         return 0;
+    }
+
+    private static void ResolveTargets(OverworldSimState state, SimEntityState player, SimAbilityDefinition ability, List<SimEntityState> targets)
+    {
+        targets.Clear();
+        var maxTargets = ability.MaxTargets <= 0 ? 1 : ability.MaxTargets;
+        switch (ability.TargetTeam)
+        {
+            case SimTargetTeam.Self:
+                targets.Add(player);
+                break;
+            case SimTargetTeam.Ally:
+                OverworldSimulator.FindPlayersInRange(
+                    state,
+                    player.PositionXMilli,
+                    player.PositionYMilli,
+                    ability.RangeMilli,
+                    maxTargets + 1,
+                    targets);
+                var hadSelf = false;
+                for (var i = targets.Count - 1; i >= 0; i--)
+                {
+                    if (targets[i].EntityId == player.EntityId)
+                    {
+                        hadSelf = true;
+                        targets.RemoveAt(i);
+                    }
+                }
+
+                if (targets.Count > maxTargets)
+                {
+                    targets.RemoveRange(maxTargets, targets.Count - maxTargets);
+                }
+
+                if (targets.Count == 0 && hadSelf)
+                {
+                    targets.Add(player);
+                }
+                else if (targets.Count < maxTargets && hadSelf)
+                {
+                    targets.Add(player);
+                }
+                break;
+            case SimTargetTeam.Any:
+                OverworldSimulator.FindAnyInRange(state, player.PositionXMilli, player.PositionYMilli, ability.RangeMilli, maxTargets, targets);
+                break;
+            default:
+                OverworldSimulator.FindEnemiesInRange(state, player.PositionXMilli, player.PositionYMilli, ability.RangeMilli, maxTargets, targets);
+                break;
+        }
     }
 
     private static int GetCooldownTicks(SimEntityState player, SimAbilitySlot slot)

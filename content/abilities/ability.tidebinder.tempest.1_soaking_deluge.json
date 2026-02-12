@@ -1,0 +1,13 @@
+{
+  "id": "ability.tidebinder.tempest.1_soaking_deluge",
+  "specId": "spec.tidebinder.tempest",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "circle", "rangeM": 3.0, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "ApplyStatus", "statusId": "status.tidebinder.tempest.soaked" },
+    { "primitive": "DealDamage", "coefficientPermille": 1150, "flat": 4 },
+    { "primitive": "StartCooldown" }
+  ]
+}

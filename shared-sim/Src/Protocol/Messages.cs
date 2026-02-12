@@ -39,7 +39,9 @@ public enum EntityKind : byte
 {
     Player = 1,
     Enemy = 2,
-    Loot = 3
+    Loot = 3,
+    Zone = 4,
+    Link = 5
 }
 
 public enum ZoneKind : byte
@@ -82,6 +84,8 @@ public sealed class JoinOverworldAccepted : IProtocolMessage
     public uint EntityId { get; set; }
     public ushort PlayerCount { get; set; }
     public ZoneKind ZoneKind { get; set; } = ZoneKind.Overworld;
+    public string BaseClassId { get; set; } = "bastion";
+    public string SpecId { get; set; } = "spec.bastion.bulwark";
 }
 
 public sealed class JoinDungeonRequest : IProtocolMessage
@@ -95,6 +99,8 @@ public sealed class JoinDungeonAccepted : IProtocolMessage
     public uint EntityId { get; set; }
     public uint DungeonInstanceId { get; set; }
     public ZoneKind ZoneKind { get; set; } = ZoneKind.Dungeon;
+    public string BaseClassId { get; set; } = "bastion";
+    public string SpecId { get; set; } = "spec.bastion.bulwark";
 }
 
 public sealed class DisconnectRequest : IProtocolMessage
@@ -132,4 +138,24 @@ public sealed class EntitySnapshot
     public ushort BuilderResource { get; set; }
     public ushort SpenderResource { get; set; }
     public ushort Currency { get; set; }
+    public byte FastCooldownTicks { get; set; }
+    public byte HeavyCooldownTicks { get; set; }
+    public byte Skill1CooldownTicks { get; set; }
+    public byte Skill2CooldownTicks { get; set; }
+    public byte Skill3CooldownTicks { get; set; }
+    public byte Skill4CooldownTicks { get; set; }
+    public byte Skill5CooldownTicks { get; set; }
+    public byte Skill6CooldownTicks { get; set; }
+    public byte Skill7CooldownTicks { get; set; }
+    public byte Skill8CooldownTicks { get; set; }
+    public uint AggroTargetEntityId { get; set; }
+    public ushort AggroThreatValue { get; set; }
+    public byte ForcedTargetTicks { get; set; }
+    public byte DebugPrimaryStatusStacks { get; set; }
+    public byte DebugConsumedStatusStacks { get; set; }
+    public byte DebugLastCastSlotCode { get; set; }
+    public byte DebugLastCastResultCode { get; set; }
+    public byte DebugLastCastTargetTeamCode { get; set; }
+    public byte DebugLastCastAffectedCount { get; set; }
+    public ushort DebugLastCastVfxCode { get; set; }
 }

@@ -1,0 +1,13 @@
+{
+  "id": "ability.arbiter.aegis.2_purifying_starlight",
+  "specId": "spec.arbiter.aegis",
+  "slot": "2",
+  "inputBehavior": "tap",
+  "cooldownMs": 16000,
+  "targeting": { "type": "circle", "rangeM": 3.5, "teamFilter": "ally", "maxTargets": 6, "shape": { "radiusM": 3.5 } },
+  "effects": [
+    { "primitive": "Cleanse" },
+    { "primitive": "Heal", "flat": 9 },
+    { "primitive": "StartCooldown" }
+  ]
+}

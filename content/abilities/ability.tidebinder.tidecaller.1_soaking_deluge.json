@@ -1,0 +1,13 @@
+{
+  "id": "ability.tidebinder.tidecaller.1_soaking_deluge",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "1",
+  "inputBehavior": "tap",
+  "cooldownMs": 9000,
+  "targeting": { "type": "circle", "rangeM": 3.0, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "ApplyStatus", "statusId": "status.tidebinder.tidecaller.soaked" },
+    { "primitive": "DealDamage", "coefficientPermille": 1050, "flat": 3 },
+    { "primitive": "StartCooldown" }
+  ]
+}

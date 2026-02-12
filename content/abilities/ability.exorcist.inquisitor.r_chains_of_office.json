@@ -1,0 +1,15 @@
+{
+  "id": "ability.exorcist.inquisitor.r_chains_of_office",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 7000,
+  "targeting": { "type": "nearest_in_range", "rangeM": 4.0, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 10 },
+    { "primitive": "DealDamage", "coefficientPermille": 1500, "flat": 4 },
+    { "primitive": "ApplyCC" },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.inquisitor.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}

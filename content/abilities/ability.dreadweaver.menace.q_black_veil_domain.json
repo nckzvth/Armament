@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.menace.q_black_veil_domain",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 30000,
+  "targeting": { "type": "nearest_in_range", "rangeM": 2.8, "teamFilter": "enemy", "maxTargets": 4 },
+  "effects": [
+    { "primitive": "ApplyShield", "amount": 20 },
+    { "primitive": "ApplyDR", "amount": 20 },
+    { "primitive": "DealDamage", "coefficientPermille": 1350, "flat": 10 },
+    { "primitive": "StartCooldown" }
+  ]
+}

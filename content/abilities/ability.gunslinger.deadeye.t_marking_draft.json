@@ -1,0 +1,13 @@
+{
+  "id": "ability.gunslinger.deadeye.t_marking_draft",
+  "specId": "spec.gunslinger.deadeye",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 3500,
+  "targeting": { "type": "nearest_in_range", "rangeM": 8.8, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "ApplyStatus", "statusId": "status.gunslinger.deadeye.drafted" },
+    { "primitive": "DealDamage", "coefficientPermille": 1100, "flat": 4 },
+    { "primitive": "StartCooldown" }
+  ]
+}

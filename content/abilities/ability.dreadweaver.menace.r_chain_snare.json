@@ -1,0 +1,14 @@
+{
+  "id": "ability.dreadweaver.menace.r_chain_snare",
+  "specId": "spec.dreadweaver.menace",
+  "slot": "r",
+  "inputBehavior": "tap",
+  "cooldownMs": 6000,
+  "targeting": { "type": "nearest_in_range", "rangeM": 6.0, "teamFilter": "enemy", "maxTargets": 1 },
+  "effects": [
+    { "primitive": "CreateLink", "linkDefId": "link.dreadweaver.menace.chain_snare" },
+    { "primitive": "ApplyStatus", "statusId": "status.dreadweaver.menace.smoke_mark" },
+    { "primitive": "AddThreat", "amount": 15 },
+    { "primitive": "StartCooldown" }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "ability.tidebinder.tidecaller.q_maelstrom_of_mercy",
+  "specId": "spec.tidebinder.tidecaller",
+  "slot": "q",
+  "inputBehavior": "tap",
+  "cooldownMs": 30000,
+  "targeting": { "type": "point", "rangeM": 4.2, "teamFilter": "any", "maxTargets": 6 },
+  "effects": [
+    { "primitive": "SpawnZone", "zoneDefId": "zone.tidebinder.tidecaller.maelstrom" },
+    { "primitive": "StartCooldown" }
+  ]
+}

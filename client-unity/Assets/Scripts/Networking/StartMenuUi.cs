@@ -5,7 +5,8 @@ using Armament.SharedSim.Sim;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Armament.Client.Networking;
+namespace Armament.Client.Networking
+{
 
 public sealed class StartMenuUi : MonoBehaviour
 {
@@ -713,4 +714,5 @@ public sealed class StartMenuUi : MonoBehaviour
 
         public int Slot { get; }
     }
+}
 }

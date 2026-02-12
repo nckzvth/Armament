@@ -1,0 +1,14 @@
+{
+  "id": "ability.exorcist.inquisitor.t_aegis_step",
+  "specId": "spec.exorcist.inquisitor",
+  "slot": "t",
+  "inputBehavior": "tap",
+  "cooldownMs": 5000,
+  "targeting": { "type": "line", "rangeM": 4.8, "teamFilter": "enemy", "maxTargets": 6 },
+  "effects": [
+    { "primitive": "SpendResource", "amount": 8 },
+    { "primitive": "DealDamage", "coefficientPermille": 1350, "flat": 2 },
+    { "primitive": "ApplyStatus", "statusId": "status.exorcist.inquisitor.bound" },
+    { "primitive": "StartCooldown" }
+  ]
+}
