@@ -5,6 +5,7 @@
 - Server is the single source of truth.
 - Client sends intent-only commands (`ClientHello`, `JoinOverworldRequest`, `InputCommand`).
 - Server simulates Overworld at fixed tick and broadcasts snapshots.
+- Active client implementation is MonoGame (`/Users/nckzvth/Projects/Armament/client-mg`) using the same protocol contracts from `shared-sim`.
 
 ## Tick and Snapshot Rates
 
@@ -31,6 +32,11 @@
 - Local client runs fixed-tick input prediction for owned entity.
 - Server snapshots carry `LastProcessedInputSequence`; client replays unacked inputs after authoritative correction.
 - Remote entities are rendered through an interpolation buffer with a short back-time window.
+
+## Client Engine
+
+- MonoGame client references `/Users/nckzvth/Projects/Armament/shared-sim/Src/Armament.SharedSim.csproj` directly.
+- Unity client has been removed from this repository.
 
 ## Combat Slice (Phase 3)
 
