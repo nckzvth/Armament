@@ -1,0 +1,38 @@
+{
+  "Default": {
+    "IdleClipId": "bastion_basic_shield_HumanM@CombatIdle01_atlas",
+    "MoveClipId": "bastion_basic_shield_HumanM@Run01_Forward_atlas",
+    "RunForwardClipId": "bastion_basic_shield_HumanM@Run01_Forward_atlas",
+    "RunBackwardClipId": "bastion_basic_shield_HumanM@Run01_Backward_atlas",
+    "RunLeftClipId": "bastion_basic_shield_HumanM@Run01_Left_atlas",
+    "RunRightClipId": "bastion_basic_shield_HumanM@Run01_Right_atlas",
+    "RunForwardLeftClipId": "bastion_basic_shield_HumanM@Run01_ForwardLeft_atlas",
+    "RunForwardRightClipId": "bastion_basic_shield_HumanM@Run01_ForwardRight_atlas",
+    "RunBackwardLeftClipId": "bastion_basic_shield_HumanM@Run01_BackwardLeft_atlas",
+    "RunBackwardRightClipId": "bastion_basic_shield_HumanM@Run01_BackwardRight_atlas",
+    "StrafeLeftClipId": "bastion_basic_shield_HumanM@StrafeRun01_Left_atlas",
+    "StrafeRightClipId": "bastion_basic_shield_HumanM@StrafeRun01_Right_atlas",
+    "StrafeForwardLeftClipId": "bastion_basic_shield_HumanM@StrafeRun01_ForwardLeft_atlas",
+    "StrafeForwardRightClipId": "bastion_basic_shield_HumanM@StrafeRun01_ForwardRight_atlas",
+    "StrafeBackwardLeftClipId": "bastion_basic_shield_HumanM@StrafeRun01_BackwardLeft_atlas",
+    "StrafeBackwardRightClipId": "bastion_basic_shield_HumanM@StrafeRun01_BackwardRight_atlas",
+    "TurnLeftClipId": "bastion_basic_shield_HumanM@Turn01_Left_atlas",
+    "TurnRightClipId": "bastion_basic_shield_HumanM@Turn01_Right_atlas",
+    "BlockLoopClipId": "",
+    "HeavyClipId": "",
+    "FastChainClipIds": [
+      "bastion_basic_shield_HumanM@AttackShield01_atlas"
+    ],
+    "CastClipBySlotLabel": {
+      "E": "",
+      "R": "",
+      "Q": "",
+      "T": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": ""
+    }
+  },
+  "Specs": {}
+}

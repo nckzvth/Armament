@@ -92,6 +92,7 @@ public static class ProtocolCodec
                     writer.Write(entity.DebugLastCastTargetTeamCode);
                     writer.Write(entity.DebugLastCastAffectedCount);
                     writer.Write(entity.DebugLastCastVfxCode);
+                    writer.Write(entity.DebugLastCastFeedbackTicks);
                 }
                 break;
             default:
@@ -181,16 +182,16 @@ public static class ProtocolCodec
                 BuilderResource = reader.ReadUInt16(),
                 SpenderResource = reader.ReadUInt16(),
                 Currency = reader.ReadUInt16(),
-                FastCooldownTicks = reader.ReadByte(),
-                HeavyCooldownTicks = reader.ReadByte(),
-                Skill1CooldownTicks = reader.ReadByte(),
-                Skill2CooldownTicks = reader.ReadByte(),
-                Skill3CooldownTicks = reader.ReadByte(),
-                Skill4CooldownTicks = reader.ReadByte(),
-                Skill5CooldownTicks = reader.ReadByte(),
-                Skill6CooldownTicks = reader.ReadByte(),
-                Skill7CooldownTicks = reader.ReadByte(),
-                Skill8CooldownTicks = reader.ReadByte(),
+                FastCooldownTicks = reader.ReadUInt16(),
+                HeavyCooldownTicks = reader.ReadUInt16(),
+                Skill1CooldownTicks = reader.ReadUInt16(),
+                Skill2CooldownTicks = reader.ReadUInt16(),
+                Skill3CooldownTicks = reader.ReadUInt16(),
+                Skill4CooldownTicks = reader.ReadUInt16(),
+                Skill5CooldownTicks = reader.ReadUInt16(),
+                Skill6CooldownTicks = reader.ReadUInt16(),
+                Skill7CooldownTicks = reader.ReadUInt16(),
+                Skill8CooldownTicks = reader.ReadUInt16(),
                 AggroTargetEntityId = reader.ReadUInt32(),
                 AggroThreatValue = reader.ReadUInt16(),
                 ForcedTargetTicks = reader.ReadByte(),
@@ -200,7 +201,8 @@ public static class ProtocolCodec
                 DebugLastCastResultCode = reader.ReadByte(),
                 DebugLastCastTargetTeamCode = reader.ReadByte(),
                 DebugLastCastAffectedCount = reader.ReadByte(),
-                DebugLastCastVfxCode = reader.ReadUInt16()
+                DebugLastCastVfxCode = reader.ReadUInt16(),
+                DebugLastCastFeedbackTicks = reader.ReadByte()
             });
         }
 

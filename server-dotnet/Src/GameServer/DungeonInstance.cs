@@ -182,16 +182,16 @@ public sealed class DungeonInstance
                 BuilderResource = (ushort)ClampUShort(entity.BuilderResource / 1000),
                 SpenderResource = (ushort)ClampUShort(entity.SpenderResource / 1000),
                 Currency = (ushort)ClampUShort(entity.Character.Currency),
-                FastCooldownTicks = ClampByte(entity.FastAttackCooldownTicks),
-                HeavyCooldownTicks = ClampByte(entity.HeavyAttackCooldownTicks),
-                Skill1CooldownTicks = ClampByte(entity.SkillCooldownTicks[0]),
-                Skill2CooldownTicks = ClampByte(entity.SkillCooldownTicks[1]),
-                Skill3CooldownTicks = ClampByte(entity.SkillCooldownTicks[2]),
-                Skill4CooldownTicks = ClampByte(entity.SkillCooldownTicks[3]),
-                Skill5CooldownTicks = ClampByte(entity.SkillCooldownTicks[4]),
-                Skill6CooldownTicks = ClampByte(entity.SkillCooldownTicks[5]),
-                Skill7CooldownTicks = ClampByte(entity.SkillCooldownTicks[6]),
-                Skill8CooldownTicks = ClampByte(entity.SkillCooldownTicks[7]),
+                FastCooldownTicks = (ushort)ClampUShort(entity.FastAttackCooldownTicks),
+                HeavyCooldownTicks = (ushort)ClampUShort(entity.HeavyAttackCooldownTicks),
+                Skill1CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[0]),
+                Skill2CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[1]),
+                Skill3CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[2]),
+                Skill4CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[3]),
+                Skill5CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[4]),
+                Skill6CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[5]),
+                Skill7CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[6]),
+                Skill8CooldownTicks = (ushort)ClampUShort(entity.SkillCooldownTicks[7]),
                 AggroTargetEntityId = ResolveAggroTarget(entity),
                 AggroThreatValue = ResolveAggroThreat(entity),
                 ForcedTargetTicks = ClampByte(entity.ForcedTargetTicks),
@@ -201,7 +201,8 @@ public sealed class DungeonInstance
                 DebugLastCastResultCode = ClampByte(entity.DebugLastCastResultCode),
                 DebugLastCastTargetTeamCode = ClampByte(entity.DebugLastCastTargetTeamCode),
                 DebugLastCastAffectedCount = ClampByte(entity.DebugLastCastAffectedCount),
-                DebugLastCastVfxCode = (ushort)ClampUShort(entity.DebugLastCastVfxCode)
+                DebugLastCastVfxCode = (ushort)ClampUShort(entity.DebugLastCastVfxCode),
+                DebugLastCastFeedbackTicks = ClampByte(entity.DebugLastCastFeedbackTicks)
             });
         }
 

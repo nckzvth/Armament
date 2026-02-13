@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Armament.Client.MonoGame.Animation;
 using Armament.SharedSim.Protocol;
 using Armament.SharedSim.Sim;
 using Microsoft.Xna.Framework;
@@ -21,6 +22,7 @@ public sealed class ArmamentGame : Game
     private const int MaxFeedEntries = 10;
     private const int MaxSlots = 6;
     private const uint PortalEntityId = 900_001;
+    private const float DefaultWorldZoom = 108f;
 
     private enum UiScreen
     {
@@ -57,7 +59,8 @@ public sealed class ArmamentGame : Game
     private readonly Dictionary<uint, ushort> lootCurrencyById = new();
 
     private readonly List<PendingInput> pendingInputs = new();
-    private readonly byte[] localCooldownTicks = new byte[10];
+    private readonly ushort[] localCooldownTicks = new ushort[10];
+    private readonly ushort[] localCooldownStartTicks = new ushort[10];
     private readonly List<string> combatFeed = new();
     private readonly List<string> castFeed = new();
     private readonly List<UiButton> uiButtons = new();
@@ -74,12 +77,20 @@ public sealed class ArmamentGame : Game
     private int predictedLocalYMilli;
     private readonly int moveSpeedMilliPerSecond;
     private double totalGameSeconds;
+    private float frameDeltaSeconds;
+    private readonly string repoRoot;
+    private AtlasAnimationRuntime? localAnimationRuntime;
+    private LocalAtlasAnimator? localAnimator;
+    private string loadedAnimationClassId = string.Empty;
+    private string loadedAnimationSpecId = string.Empty;
 
     private ZoneKind currentZone = ZoneKind.Overworld;
     private InputActionFlags localActionFlags;
     private InputActionFlags previousActionFlags;
     private Vector2 localMoveInputVector;
     private Vector2 aimWorldPosition;
+    private int smoothedFacingDirection;
+    private bool hasSmoothedFacingDirection;
 
     private ushort localHealth;
     private ushort localBuilder;
@@ -91,8 +102,10 @@ public sealed class ArmamentGame : Game
     private byte lastSeenCastTargetTeam;
     private byte lastSeenCastAffected;
     private ushort lastSeenCastVfx;
+    private byte lastSeenCastFeedbackTicks;
 
     private bool pickupPressedBuffered;
+    private int fastAttackTapTicksRemaining;
     private int pickupIntentTicksRemaining;
     private int suppressFastAttackTicks;
     private bool interactPressedBufferedForSim;
@@ -105,6 +118,8 @@ public sealed class ArmamentGame : Game
 
     private UiScreen screen = UiScreen.Login;
     private bool pauseMenuOpen;
+    private bool settingsReturnToInGame;
+    private bool showVerboseHud;
     private string statusText = "Log in to continue.";
     private string activeTextField = string.Empty;
 
@@ -113,6 +128,8 @@ public sealed class ArmamentGame : Game
     private string hostField;
     private string portField;
     private string characterNameField;
+    private float worldZoom = DefaultWorldZoom;
+    private bool linearWorldFiltering;
 
     public ArmamentGame()
     {
@@ -125,11 +142,14 @@ public sealed class ArmamentGame : Game
         netClient = new UdpProtocolClient();
         var derived = CharacterMath.ComputeDerived(CharacterAttributes.Default, CharacterStatTuning.Default);
         moveSpeedMilliPerSecond = derived.MoveSpeedMilliPerSecond;
+        repoRoot = ResolveRepoRoot();
 
         loginUsername = config.AccountDisplayName;
         hostField = config.Host;
         portField = config.Port.ToString();
         characterNameField = $"Character {config.SelectedSlot + 1}";
+        worldZoom = Math.Clamp(config.WorldZoom, 70f, 180f);
+        linearWorldFiltering = false;
     }
 
     protected override void Initialize()
@@ -160,6 +180,7 @@ public sealed class ArmamentGame : Game
         }
 
         totalGameSeconds = gameTime.TotalGameTime.TotalSeconds;
+        frameDeltaSeconds = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
         var keyboard = Keyboard.GetState();
         var mouse = Mouse.GetState();
@@ -172,8 +193,21 @@ public sealed class ArmamentGame : Game
             }
             else if (screen == UiScreen.Settings)
             {
-                screen = UiScreen.CharacterSelect;
+                if (settingsReturnToInGame && joined)
+                {
+                    screen = UiScreen.InGame;
+                    pauseMenuOpen = true;
+                }
+                else
+                {
+                    screen = UiScreen.CharacterSelect;
+                }
             }
+        }
+
+        if (screen == UiScreen.InGame && WasPressed(keyboard, previousKeyboard, Keys.F10))
+        {
+            showVerboseHud = !showVerboseHud;
         }
 
         DrainIncoming();
@@ -217,33 +251,44 @@ public sealed class ArmamentGame : Game
         GraphicsDevice.Clear(new Color(41, 72, 125));
         textFields.Clear();
 
-        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-
         switch (screen)
         {
             case UiScreen.Login:
+                spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                 DrawLoginUi(spriteBatch, debugFont);
+                spriteBatch.End();
                 break;
             case UiScreen.CharacterSelect:
+                spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                 DrawCharacterSelectUi(spriteBatch, debugFont);
+                spriteBatch.End();
                 break;
             case UiScreen.CharacterCreation:
+                spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                 DrawCharacterCreateUi(spriteBatch, debugFont);
+                spriteBatch.End();
                 break;
             case UiScreen.Settings:
+                spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                 DrawSettingsUi(spriteBatch, debugFont);
+                spriteBatch.End();
                 break;
             case UiScreen.InGame:
+                // World pass: linear filtering improves perceived sprite quality when scaled.
+                spriteBatch.Begin(samplerState: linearWorldFiltering ? SamplerState.LinearClamp : SamplerState.PointClamp);
                 DrawWorld(spriteBatch, pixel, GetCameraPosition());
+                spriteBatch.End();
+
+                // UI pass: keep crisp for debug text and controls.
+                spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                 DrawInGameHud(spriteBatch, debugFont);
                 if (pauseMenuOpen)
                 {
                     DrawPauseMenu(spriteBatch, debugFont);
                 }
+                spriteBatch.End();
                 break;
         }
-
-        spriteBatch.End();
 
         base.Draw(gameTime);
     }
@@ -251,6 +296,7 @@ public sealed class ArmamentGame : Game
     protected override void OnExiting(object sender, ExitingEventArgs args)
     {
         Window.TextInput -= OnTextInput;
+        DisposeAnimationRuntime();
         netClient.Dispose();
         config.Save();
         slotStore.Save();
@@ -346,11 +392,18 @@ public sealed class ArmamentGame : Game
             pickupPressedBuffered = true;
         }
 
-        if (WasPressed(mouse, previousMouse, true) && IsLootClicked(mouse))
+        var lmbPressed = WasPressed(mouse, previousMouse, true);
+        var clickedLoot = lmbPressed && IsLootClicked(mouse);
+        if (clickedLoot)
         {
             pickupPressedBuffered = true;
             suppressFastAttackTicks = 10;
             LogCombat("Loot pickup");
+        }
+        else if (lmbPressed)
+        {
+            // Buffer quick taps so click-to-attack survives frame/tick timing differences.
+            fastAttackTapTicksRemaining = Math.Max(fastAttackTapTicksRemaining, 3);
         }
 
         if (currentZone == ZoneKind.Overworld && interactPressedBufferedForZone)
@@ -411,6 +464,11 @@ public sealed class ArmamentGame : Game
         localMoveInputVector = movement;
 
         var actionFlags = ReadActionFlags(keyboard, mouse);
+        if (fastAttackTapTicksRemaining > 0)
+        {
+            actionFlags |= InputActionFlags.FastAttackHold;
+            fastAttackTapTicksRemaining--;
+        }
 
         if (ConsumeBufferedPickupIntent())
         {
@@ -432,6 +490,11 @@ public sealed class ArmamentGame : Game
         }
 
         RecordActionStarts(actionFlags);
+        var started = actionFlags & ~previousActionFlags;
+        if ((started & InputActionFlags.FastAttackHold) != 0)
+        {
+            localAnimator?.NotifyLocalFastAttackIntent();
+        }
 
         var quantizedX = Quantization.QuantizeInput(movement.X);
         var quantizedY = Quantization.QuantizeInput(movement.Y);
@@ -524,6 +587,7 @@ public sealed class ArmamentGame : Game
         slotStore.SaveSlot(config.AccountSubject, config.SelectedSlot, slot);
         slotStore.Save();
         config.Save();
+        TryLoadAnimationRuntimeForLocalClass(config.BaseClassId, config.SpecId);
     }
 
     private void ApplySnapshot(WorldSnapshot snapshot)
@@ -582,24 +646,27 @@ public sealed class ArmamentGame : Game
                 localBuilder = entity.BuilderResource;
                 localSpender = entity.SpenderResource;
                 localCurrency = entity.Currency;
-                localCooldownTicks[0] = entity.FastCooldownTicks;
-                localCooldownTicks[1] = entity.HeavyCooldownTicks;
-                localCooldownTicks[2] = entity.Skill1CooldownTicks;
-                localCooldownTicks[3] = entity.Skill2CooldownTicks;
-                localCooldownTicks[4] = entity.Skill3CooldownTicks;
-                localCooldownTicks[5] = entity.Skill4CooldownTicks;
-                localCooldownTicks[6] = entity.Skill5CooldownTicks;
-                localCooldownTicks[7] = entity.Skill6CooldownTicks;
-                localCooldownTicks[8] = entity.Skill7CooldownTicks;
-                localCooldownTicks[9] = entity.Skill8CooldownTicks;
+                UpdateCooldownSlot(0, entity.FastCooldownTicks);
+                UpdateCooldownSlot(1, entity.HeavyCooldownTicks);
+                UpdateCooldownSlot(2, entity.Skill1CooldownTicks);
+                UpdateCooldownSlot(3, entity.Skill2CooldownTicks);
+                UpdateCooldownSlot(4, entity.Skill3CooldownTicks);
+                UpdateCooldownSlot(5, entity.Skill4CooldownTicks);
+                UpdateCooldownSlot(6, entity.Skill5CooldownTicks);
+                UpdateCooldownSlot(7, entity.Skill6CooldownTicks);
+                UpdateCooldownSlot(8, entity.Skill7CooldownTicks);
+                UpdateCooldownSlot(9, entity.Skill8CooldownTicks);
 
                 if (entity.DebugLastCastResultCode > 0 &&
                     (entity.DebugLastCastSlotCode != lastSeenCastSlot ||
                      entity.DebugLastCastResultCode != lastSeenCastResult ||
                      entity.DebugLastCastTargetTeamCode != lastSeenCastTargetTeam ||
                      entity.DebugLastCastAffectedCount != lastSeenCastAffected ||
-                     entity.DebugLastCastVfxCode != lastSeenCastVfx))
+                     entity.DebugLastCastVfxCode != lastSeenCastVfx ||
+                     entity.DebugLastCastFeedbackTicks > lastSeenCastFeedbackTicks))
                 {
+                    localAnimator?.NotifyAuthoritativeCast(entity.DebugLastCastSlotCode, entity.DebugLastCastResultCode);
+
                     if (entity.DebugLastCastSlotCode != 0)
                     {
                         LogCast(FormatCastFeedback(entity.DebugLastCastSlotCode, entity.DebugLastCastResultCode));
@@ -616,6 +683,7 @@ public sealed class ArmamentGame : Game
                 lastSeenCastTargetTeam = entity.DebugLastCastTargetTeamCode;
                 lastSeenCastAffected = entity.DebugLastCastAffectedCount;
                 lastSeenCastVfx = entity.DebugLastCastVfxCode;
+                lastSeenCastFeedbackTicks = entity.DebugLastCastFeedbackTicks;
             }
         }
 
@@ -727,6 +795,11 @@ public sealed class ArmamentGame : Game
 
             var worldPos = pair.Value;
             var screenPos = WorldToScreen(worldPos, cameraPos);
+            if (kind == EntityKind.Player && pair.Key == localEntityId && TryDrawLocalAnimatedPlayer(batch, screenPos, worldPos))
+            {
+                continue;
+            }
+
             var color = ResolveColor(pair.Key, kind);
             var size = ResolveSize(kind);
             var rect = new Rectangle((int)(screenPos.X - size * 0.5f), (int)(screenPos.Y - size * 0.5f), (int)size, (int)size);
@@ -750,6 +823,158 @@ public sealed class ArmamentGame : Game
         }
 
         DrawPortalPrompt(batch, cameraPos);
+    }
+
+    private bool TryDrawLocalAnimatedPlayer(SpriteBatch batch, Vector2 screenPos, Vector2 worldPos)
+    {
+        if (localAnimationRuntime is null || localAnimator is null)
+        {
+            return false;
+        }
+
+        var moving = localMoveInputVector.LengthSquared() > 0.0001f;
+        var blockHold = (localActionFlags & InputActionFlags.BlockHold) != 0;
+        var fastHold = (localActionFlags & InputActionFlags.FastAttackHold) != 0;
+        var heavyHold = (localActionFlags & InputActionFlags.HeavyAttackHold) != 0;
+        var facingDir = ComputeFacingDirection(worldPos);
+        if (!localAnimator.TryResolveFrame(frameDeltaSeconds, facingDir, localMoveInputVector, moving, blockHold, fastHold, heavyHold, out var clip, out var frame))
+        {
+            return false;
+        }
+
+        var scale = worldZoom / MathF.Max(1, clip.PixelsPerUnit);
+        var snappedScreenPos = new Vector2(MathF.Round(screenPos.X), MathF.Round(screenPos.Y));
+        batch.Draw(
+            clip.Atlas,
+            snappedScreenPos,
+            frame.Source,
+            Color.White,
+            0f,
+            frame.OriginPixels,
+            scale,
+            SpriteEffects.None,
+            0f);
+
+        return true;
+    }
+
+    private int ComputeFacingDirection(Vector2 worldPos)
+    {
+        var activeCombatOrMove = localMoveInputVector.LengthSquared() > 0.0001f ||
+                                 (localActionFlags & (InputActionFlags.FastAttackHold | InputActionFlags.HeavyAttackHold | InputActionFlags.BlockHold)) != 0;
+
+        Vector2 dir;
+        if (activeCombatOrMove && aimWorldPosition != Vector2.Zero)
+        {
+            dir = aimWorldPosition - worldPos;
+        }
+        else if (localMoveInputVector.LengthSquared() > 0.0001f)
+        {
+            dir = localMoveInputVector;
+        }
+        else
+        {
+            return hasSmoothedFacingDirection ? smoothedFacingDirection : 7;
+        }
+
+        if (dir.LengthSquared() <= 0.0001f)
+        {
+            return hasSmoothedFacingDirection ? smoothedFacingDirection : 7;
+        }
+
+        // Atlas direction convention (clockwise):
+        // 0=NE, 1=E, 2=SE, 3=S, 4=SW, 5=W, 6=NW, 7=N
+        var angleDeg = MathF.Atan2(dir.Y, dir.X) * (180f / MathF.PI);
+        var raw = (45f - angleDeg) / 45f;
+        var index = (int)MathF.Round(raw);
+        index %= 8;
+        if (index < 0)
+        {
+            index += 8;
+        }
+
+        if (!hasSmoothedFacingDirection)
+        {
+            smoothedFacingDirection = index;
+            hasSmoothedFacingDirection = true;
+            return smoothedFacingDirection;
+        }
+
+        var hysteresisDegrees = activeCombatOrMove ? 20f : 30f;
+        var currentCenterAngle = 45f - smoothedFacingDirection * 45f;
+        var deltaDegrees = ShortestAngleDegrees(currentCenterAngle, angleDeg);
+        if (MathF.Abs(deltaDegrees) >= hysteresisDegrees)
+        {
+            smoothedFacingDirection = index;
+        }
+
+        return smoothedFacingDirection;
+    }
+
+    private static float ShortestAngleDegrees(float fromDeg, float toDeg)
+    {
+        var delta = (toDeg - fromDeg + 540f) % 360f - 180f;
+        return delta;
+    }
+
+    private void TryLoadAnimationRuntimeForLocalClass(string baseClassId, string specId)
+    {
+        var normalizedClass = ClassSpecCatalog.NormalizeBaseClass(baseClassId);
+        var normalizedSpec = ClassSpecCatalog.NormalizeSpecForClass(normalizedClass, specId);
+        if (string.Equals(loadedAnimationClassId, normalizedClass, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(loadedAnimationSpecId, normalizedSpec, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        DisposeAnimationRuntime();
+        localAnimationRuntime = AtlasAnimationLoader.TryLoad(GraphicsDevice, repoRoot, normalizedClass, normalizedSpec);
+        if (localAnimationRuntime is not null)
+        {
+            localAnimator = new LocalAtlasAnimator(localAnimationRuntime);
+            loadedAnimationClassId = normalizedClass;
+            loadedAnimationSpecId = normalizedSpec;
+            LogCast($"Animation runtime loaded for {normalizedClass}/{normalizedSpec}");
+            return;
+        }
+
+        loadedAnimationClassId = normalizedClass;
+        loadedAnimationSpecId = normalizedSpec;
+        localAnimator = null;
+        LogCast($"Animation runtime missing for {normalizedClass}/{normalizedSpec} (using debug fallback)");
+    }
+
+    private void DisposeAnimationRuntime()
+    {
+        localAnimationRuntime?.Dispose();
+        localAnimationRuntime = null;
+        localAnimator = null;
+        loadedAnimationClassId = string.Empty;
+        loadedAnimationSpecId = string.Empty;
+    }
+
+    private static string ResolveRepoRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (var i = 0; i < 12; i++)
+        {
+            if (Directory.Exists(Path.Combine(dir, "content")) &&
+                Directory.Exists(Path.Combine(dir, "shared-sim")) &&
+                Directory.Exists(Path.Combine(dir, "server-dotnet")))
+            {
+                return dir;
+            }
+
+            var parent = Directory.GetParent(dir);
+            if (parent is null)
+            {
+                break;
+            }
+
+            dir = parent.FullName;
+        }
+
+        return Directory.GetCurrentDirectory();
     }
 
     private void DrawPortalPrompt(SpriteBatch batch, Vector2 cameraPos)
@@ -777,48 +1002,157 @@ public sealed class ArmamentGame : Game
 
     private void DrawInGameHud(SpriteBatch batch, SpriteFont font)
     {
-        var panel = new Rectangle(8, 8, graphics.PreferredBackBufferWidth - 16, 250);
-        batch.Draw(pixel!, panel, new Color(11, 32, 64, 220));
+        var viewW = graphics.PreferredBackBufferWidth;
+        var viewH = graphics.PreferredBackBufferHeight;
+        var dock = new Rectangle(10, viewH - 122, viewW - 20, 112);
+        batch.Draw(pixel!, dock, new Color(9, 16, 30, 218));
+        DrawOutline(batch, dock, new Color(150, 168, 208, 220));
 
-        var localAggro = "no enemy";
+        var bookendW = 190;
+        var hpPanel = new Rectangle(dock.X + 12, dock.Y + 10, bookendW, dock.Height - 20);
+        DrawGaugePanel(batch, font, hpPanel, "HEALTH", localHealth, CharacterMath.ComputeDerived(CharacterAttributes.Default, CharacterStatTuning.Default).MaxHealth, new Color(180, 35, 35, 255), $"{localHealth}");
+
+        var resourcePanel = new Rectangle(dock.Right - 12 - bookendW, dock.Y + 10, bookendW, dock.Height - 20);
+        DrawGaugePanel(batch, font, resourcePanel, "RESOURCE", localSpender, 100, new Color(210, 140, 35, 255), $"{localSpender}");
+
+        var centerLeft = hpPanel.Right + 12;
+        var centerRight = resourcePanel.Left - 12;
+        var centerWidth = Math.Max(360, centerRight - centerLeft);
+
+        var staminaCenterPanel = new Rectangle(centerLeft + 60, dock.Y + 8, Math.Max(220, centerWidth - 120), 26);
+        DrawHorizontalBar(batch, font, staminaCenterPanel, "Stamina", localBuilder, 100, new Color(60, 150, 240, 255));
+
+        var slotPanel = new Rectangle(centerLeft, staminaCenterPanel.Bottom + 8, centerWidth, 60);
+        batch.Draw(pixel!, slotPanel, new Color(16, 25, 45, 220));
+        DrawOutline(batch, slotPanel, new Color(155, 170, 205, 220));
+        DrawActionBar(batch, font, slotPanel);
+
+        var status = $"[{currentZone}] {config.BaseClassId}/{config.SpecId} | Gold {localCurrency} | Aggro {(ResolveAggroSummary())}";
+        batch.DrawString(font, status, new Vector2(dock.X + 2, dock.Y - 20), new Color(225, 230, 245, 235));
+        batch.DrawString(font, "F10 debug", new Vector2(dock.Right - 100, dock.Y - 20), new Color(210, 220, 240, 220));
+
+        if (showVerboseHud)
+        {
+            var top = new Rectangle(8, 8, graphics.PreferredBackBufferWidth - 16, 132);
+            batch.Draw(pixel!, top, new Color(11, 32, 64, 210));
+            DrawOutline(batch, top, Color.White);
+            var lines = new[]
+            {
+                "Armament MonoGame Client",
+                $"Connection: {(netClient.IsConnected ? "connected" : "disconnected")} | Joined: {(joined ? "yes" : "no")} | Zone: {currentZone} ({currentInstanceId})",
+                $"Server: {config.Host}:{config.Port} | Account: {config.AccountSubject} ({config.AccountDisplayName})",
+                $"Local Entity: {localEntityId} | Snapshot: {(hasSnapshot ? "yes" : "no")} | Prediction: {(hasLocalPredictionState ? "yes" : "no")} | Links {latestEntityKinds.Values.Count(k => k == EntityKind.Link)}",
+                $"Move: {localMoveInputVector.X:0.00},{localMoveInputVector.Y:0.00} | Aim: {aimWorldPosition.X:0.00},{aimWorldPosition.Y:0.00}",
+                "Controls: WASD | LMB/RMB/Shift | E/R/Q/T + 1/2/3/4 | Z/F/H | Alt names | Esc menu"
+            };
+            var y = 14f;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                batch.DrawString(font, lines[i], new Vector2(16f, y), Color.White);
+                y += 19f;
+            }
+
+            DrawFeedPanel(batch, font, "Combat", combatFeed, 8, 146, 460, 152);
+            DrawFeedPanel(batch, font, "Server Cast Feed", castFeed, 476, 146, 460, 152);
+        }
+    }
+
+    private void DrawGaugePanel(SpriteBatch batch, SpriteFont font, Rectangle rect, string title, int value, int max, Color fill, string valueLabel)
+    {
+        batch.Draw(pixel!, rect, new Color(14, 30, 55, 220));
+        DrawOutline(batch, rect, new Color(155, 170, 205, 220));
+        batch.DrawString(font, title, new Vector2(rect.X + 8, rect.Y + 6), Color.White);
+        var barRect = new Rectangle(rect.X + 8, rect.Y + 30, rect.Width - 16, rect.Height - 38);
+        DrawMeterFill(batch, barRect, value, max, fill);
+        batch.DrawString(font, valueLabel, new Vector2(barRect.X + 8, barRect.Y + 6), Color.White);
+    }
+
+    private void DrawHorizontalBar(SpriteBatch batch, SpriteFont font, Rectangle rect, string label, int value, int max, Color fill)
+    {
+        batch.Draw(pixel!, rect, new Color(20, 26, 36, 230));
+        DrawOutline(batch, rect, new Color(120, 130, 160, 255));
+        DrawMeterFill(batch, rect, value, max, fill);
+        batch.DrawString(font, $"{label}: {value}", new Vector2(rect.X + 6, rect.Y + 2), Color.White);
+    }
+
+    private void DrawMeterFill(SpriteBatch batch, Rectangle rect, int value, int max, Color fill)
+    {
+        var clampedMax = Math.Max(1, max);
+        var t = MathHelper.Clamp(value / (float)clampedMax, 0f, 1f);
+        var fillWidth = Math.Max(1, (int)MathF.Round((rect.Width - 2) * t));
+        var fillRect = new Rectangle(rect.X + 1, rect.Y + 1, fillWidth, Math.Max(1, rect.Height - 2));
+        batch.Draw(pixel!, fillRect, fill);
+    }
+
+    private void DrawActionBar(SpriteBatch batch, SpriteFont font, Rectangle panel)
+    {
+        // Slot order adheres to current keybind contract.
+        var labels = new[] { "LMB", "RMB", "Shift", "E", "R", "Q", "T", "1", "2", "3", "4" };
+        var cooldowns = new[] { localCooldownTicks[0], localCooldownTicks[1], (ushort)0, localCooldownTicks[2], localCooldownTicks[3], localCooldownTicks[4], localCooldownTicks[5], localCooldownTicks[6], localCooldownTicks[7], localCooldownTicks[8], localCooldownTicks[9] };
+        var cooldownStarts = new[] { localCooldownStartTicks[0], localCooldownStartTicks[1], (ushort)0, localCooldownStartTicks[2], localCooldownStartTicks[3], localCooldownStartTicks[4], localCooldownStartTicks[5], localCooldownStartTicks[6], localCooldownStartTicks[7], localCooldownStartTicks[8], localCooldownStartTicks[9] };
+        var cols = labels.Length;
+        var spacing = 6;
+        var slotW = (panel.Width - (spacing * (cols + 1))) / cols;
+        var slotH = panel.Height - 16;
+        var y = panel.Y + 8;
+
+        for (var i = 0; i < cols; i++)
+        {
+            var x = panel.X + spacing + i * (slotW + spacing);
+            var r = new Rectangle(x, y, slotW, slotH);
+            batch.Draw(pixel!, r, new Color(22, 34, 58, 240));
+            DrawOutline(batch, r, new Color(130, 145, 180, 255));
+            batch.DrawString(font, labels[i], new Vector2(r.X + 6, r.Y + 6), Color.White);
+
+            if (cooldowns[i] > 0)
+            {
+                var baseline = Math.Max(1, (int)cooldownStarts[i]);
+                var t = MathHelper.Clamp(cooldowns[i] / (float)baseline, 0f, 1f);
+                var h = Math.Max(1, (int)MathF.Round((r.Height - 2) * t));
+                var overlay = new Rectangle(r.X + 1, r.Bottom - 1 - h, r.Width - 2, h);
+                batch.Draw(pixel!, overlay, new Color(8, 8, 10, 185));
+                var sec = cooldowns[i] / 60f;
+                var text = sec >= 10f ? $"{sec:0}" : $"{sec:0.0}";
+                batch.DrawString(font, text, new Vector2(r.X + 6, r.Bottom - 24), new Color(235, 235, 245, 255));
+            }
+        }
+    }
+
+    private string ResolveAggroSummary()
+    {
         foreach (var pair in latestEnemyAggroTarget)
         {
             if (pair.Value == localEntityId)
             {
                 var threat = latestEnemyAggroThreat.TryGetValue(pair.Key, out var t) ? t : (ushort)0;
                 var forced = latestEnemyForcedTicks.TryGetValue(pair.Key, out var f) ? f : (byte)0;
-                localAggro = $"enemy {pair.Key}: threat={threat} forced={forced}";
-                break;
+                return $"enemy {pair.Key}: threat={threat} forced={forced}";
             }
         }
 
-        var links = latestEntityKinds.Values.Count(k => k == EntityKind.Link);
-        var lines = new List<string>
-        {
-            "Armament MonoGame Client",
-            $"Connection: {(netClient.IsConnected ? "connected" : "disconnected")} | Joined: {(joined ? "yes" : "no")}",
-            $"Server: {config.Host}:{config.Port}",
-            $"Account: {config.AccountSubject} ({config.AccountDisplayName})",
-            $"Slot: {config.SelectedSlot} | Name: {config.CharacterName}",
-            $"Class/Spec: {config.BaseClassId} / {config.SpecId}",
-            $"Zone: {currentZone} ({currentInstanceId})",
-            $"Local Entity: {localEntityId} | Snapshot: {(hasSnapshot ? "yes" : "no")} | Prediction: {(hasLocalPredictionState ? "yes" : "no")}",
-            $"HP {localHealth} | B {localBuilder} | S {localSpender} | $ {localCurrency} | Links {links}",
-            $"Move: {localMoveInputVector.X:0.00},{localMoveInputVector.Y:0.00} | Aim: {aimWorldPosition.X:0.00},{aimWorldPosition.Y:0.00}",
-            $"Cooldowns L/R: {FmtCd(0)}/{FmtCd(1)} | E/R/Q/T: {FmtCd(2)}/{FmtCd(3)}/{FmtCd(4)}/{FmtCd(5)} | 1/2/3/4: {FmtCd(6)}/{FmtCd(7)}/{FmtCd(8)}/{FmtCd(9)}",
-            $"Aggro: {localAggro}",
-            $"Controls: WASD | LMB fast | RMB heavy | Shift block | E/R/Q/T + 1/2/3/4 | Z loot | F interact | H return | Alt names | Esc menu"
-        };
+        return "none";
+    }
 
-        var y = 16f;
-        foreach (var line in lines)
+    private void UpdateCooldownSlot(int idx, ushort ticks)
+    {
+        if ((uint)idx >= (uint)localCooldownTicks.Length)
         {
-            batch.DrawString(font, line, new Vector2(16f, y), Color.White);
-            y += 18f;
+            return;
         }
 
-        DrawFeedPanel(batch, font, "Combat", combatFeed, 8, 266, 520, 200);
-        DrawFeedPanel(batch, font, "Server Cast Feed", castFeed, 536, 266, 520, 200);
+        var previous = localCooldownTicks[idx];
+        localCooldownTicks[idx] = ticks;
+        if (ticks == 0)
+        {
+            localCooldownStartTicks[idx] = 0;
+            return;
+        }
+
+        // Record baseline when cooldown starts or jumps up.
+        if (previous == 0 || ticks > localCooldownStartTicks[idx])
+        {
+            localCooldownStartTicks[idx] = ticks;
+        }
     }
 
     private void DrawPauseMenu(SpriteBatch batch, SpriteFont font)
@@ -835,6 +1169,7 @@ public sealed class ArmamentGame : Game
         AddButton(rect.X + 40, rect.Y + 186, 360, 34, "Settings", () =>
         {
             pauseMenuOpen = false;
+            settingsReturnToInGame = true;
             screen = UiScreen.Settings;
         });
         AddButton(rect.X + 40, rect.Y + 228, 360, 34, "Exit Game", Exit);
@@ -927,7 +1262,11 @@ public sealed class ArmamentGame : Game
         var bottomY = panel.Bottom - 74;
         AddButton(panel.X + 22, bottomY, 160, 32, "DELETE", DeleteSelectedSlot, hasSlot);
         AddButton(detail.X, bottomY, 160, 32, "LOGOUT", LogoutToLogin);
-        AddButton(detail.X + 172, bottomY, 160, 32, "SETTINGS", () => screen = UiScreen.Settings);
+        AddButton(detail.X + 172, bottomY, 160, 32, "SETTINGS", () =>
+        {
+            settingsReturnToInGame = false;
+            screen = UiScreen.Settings;
+        });
 
         batch.DrawString(font, hasSlot ? statusText : "Selected slot is empty. Create character first.", new Vector2(detail.X, panel.Bottom - 36), Color.White);
 
@@ -1020,14 +1359,43 @@ public sealed class ArmamentGame : Game
         DrawTextField(batch, font, "NETWORK HOST", "host", hostField, new Rectangle(panel.X + 28, panel.Y + 90, panel.Width - 56, 28), false);
         DrawTextField(batch, font, "NETWORK PORT", "port", portField, new Rectangle(panel.X + 28, panel.Y + 150, panel.Width - 56, 28), false);
 
+        batch.DrawString(font, $"WORLD ZOOM: {worldZoom:0}", new Vector2(panel.X + 28, panel.Y + 196), Color.White);
+        AddButton(panel.X + 210, panel.Y + 192, 32, 28, "-", () => worldZoom = Math.Clamp(worldZoom - 4f, 70f, 180f));
+        AddButton(panel.X + 246, panel.Y + 192, 32, 28, "+", () => worldZoom = Math.Clamp(worldZoom + 4f, 70f, 180f));
+
+        var filterLabel = linearWorldFiltering ? "World Filter: Linear (Smooth)" : "World Filter: Nearest (No Filter)";
+        AddButton(panel.X + 28, panel.Y + 232, 250, 30, filterLabel, () => linearWorldFiltering = !linearWorldFiltering);
+
         AddButton(panel.X + 28, panel.Bottom - 50, 180, 30, "SAVE", () =>
         {
             SaveConnectionFields();
+            config.WorldZoom = worldZoom;
+            config.LinearWorldFiltering = linearWorldFiltering;
+            config.Save();
             statusText = "Settings saved.";
-            screen = UiScreen.CharacterSelect;
+            if (settingsReturnToInGame && joined)
+            {
+                screen = UiScreen.InGame;
+                pauseMenuOpen = true;
+            }
+            else
+            {
+                screen = UiScreen.CharacterSelect;
+            }
         });
 
-        AddButton(panel.Right - 208, panel.Bottom - 50, 180, 30, "BACK", () => screen = UiScreen.CharacterSelect);
+        AddButton(panel.Right - 208, panel.Bottom - 50, 180, 30, "BACK", () =>
+        {
+            if (settingsReturnToInGame && joined)
+            {
+                screen = UiScreen.InGame;
+                pauseMenuOpen = true;
+            }
+            else
+            {
+                screen = UiScreen.CharacterSelect;
+            }
+        });
 
         DrawButtons(batch, font);
     }
@@ -1124,7 +1492,7 @@ public sealed class ArmamentGame : Game
     private void StartCreate(int slot)
     {
         config.SelectedSlot = slot;
-        config.BaseClassId = "bastion";
+        config.BaseClassId = ClassSpecCatalog.NormalizeBaseClass(null);
         config.SpecId = ClassSpecCatalog.NormalizeSpecForClass(config.BaseClassId, null);
         characterNameField = GetDefaultNameForSlot(slot);
         activeTextField = "char_name";
@@ -1141,8 +1509,8 @@ public sealed class ArmamentGame : Game
         {
             config.SelectedSlot = 0;
             config.CharacterName = string.Empty;
-            config.BaseClassId = "bastion";
-            config.SpecId = "spec.bastion.bulwark";
+            config.BaseClassId = ClassSpecCatalog.NormalizeBaseClass(null);
+            config.SpecId = ClassSpecCatalog.NormalizeSpecForClass(config.BaseClassId, null);
             characterNameField = GetDefaultNameForSlot(0);
         }
         else
@@ -1479,19 +1847,17 @@ public sealed class ArmamentGame : Game
     private Vector2 WorldToScreen(Vector2 world, Vector2 camera)
     {
         var center = new Vector2(GraphicsDevice.Viewport.Width * 0.5f, GraphicsDevice.Viewport.Height * 0.62f);
-        const float zoom = 90f;
         return new Vector2(
-            center.X + (world.X - camera.X) * zoom,
-            center.Y - (world.Y - camera.Y) * zoom);
+            center.X + (world.X - camera.X) * worldZoom,
+            center.Y - (world.Y - camera.Y) * worldZoom);
     }
 
     private Vector2 ScreenToWorld(Vector2 screen, Vector2 camera)
     {
         var center = new Vector2(GraphicsDevice.Viewport.Width * 0.5f, GraphicsDevice.Viewport.Height * 0.62f);
-        const float zoom = 90f;
         return new Vector2(
-            camera.X + (screen.X - center.X) / zoom,
-            camera.Y - (screen.Y - center.Y) / zoom);
+            camera.X + (screen.X - center.X) / worldZoom,
+            camera.Y - (screen.Y - center.Y) / worldZoom);
     }
 
     private static string ResolveSlotLabel(byte slotCode)
@@ -1627,13 +1993,16 @@ public sealed class ArmamentGame : Game
         lastSeenCastTargetTeam = 0;
         lastSeenCastAffected = 0;
         lastSeenCastVfx = 0;
+        lastSeenCastFeedbackTicks = 0;
 
         pickupPressedBuffered = false;
+        fastAttackTapTicksRemaining = 0;
         pickupIntentTicksRemaining = 0;
         suppressFastAttackTicks = 0;
         interactPressedBufferedForSim = false;
         interactPressedBufferedForZone = false;
         returnHomePressedBuffered = false;
+        settingsReturnToInGame = false;
 
         Array.Clear(localCooldownTicks, 0, localCooldownTicks.Length);
     }
@@ -1764,8 +2133,10 @@ internal sealed class ClientConfig
     public string AccountDisplayName { get; set; } = "DevAccount";
     public int SelectedSlot { get; set; }
     public string CharacterName { get; set; } = "Character 1";
-    public string BaseClassId { get; set; } = "bastion";
-    public string SpecId { get; set; } = "spec.bastion.bulwark";
+    public string BaseClassId { get; set; } = ClassSpecCatalog.NormalizeBaseClass(null);
+    public string SpecId { get; set; } = ClassSpecCatalog.NormalizeSpecForClass(ClassSpecCatalog.NormalizeBaseClass(null), null);
+    public float WorldZoom { get; set; } = 108f;
+    public bool LinearWorldFiltering { get; set; } = false;
 
     public static ClientConfig Load()
     {
@@ -1785,6 +2156,7 @@ internal sealed class ClientConfig
                     {
                         cfg.CharacterName = $"Character {cfg.SelectedSlot + 1}";
                     }
+                    cfg.WorldZoom = Math.Clamp(cfg.WorldZoom, 70f, 180f);
 
                     return cfg;
                 }
@@ -1808,6 +2180,7 @@ internal sealed class ClientConfig
             {
                 CharacterName = $"Character {SelectedSlot + 1}";
             }
+            WorldZoom = Math.Clamp(WorldZoom, 70f, 180f);
 
             var path = ConfigPath();
             var dir = Path.GetDirectoryName(path);
@@ -2011,8 +2384,8 @@ internal sealed class CharacterSlotStore
 internal sealed class CharacterSlotRecord
 {
     public string Name { get; set; } = string.Empty;
-    public string BaseClassId { get; set; } = "bastion";
-    public string SpecId { get; set; } = "spec.bastion.bulwark";
+    public string BaseClassId { get; set; } = ClassSpecCatalog.NormalizeBaseClass(null);
+    public string SpecId { get; set; } = ClassSpecCatalog.NormalizeSpecForClass(ClassSpecCatalog.NormalizeBaseClass(null), null);
 }
 
 internal sealed class CharacterSlotStoreDto

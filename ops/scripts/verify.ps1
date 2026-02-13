@@ -17,12 +17,17 @@ try {
     dotnet --info
     dotnet format 'shared-sim/Armament.SharedSim.sln' --verify-no-changes
     dotnet format 'server-dotnet/Armament.Server.sln' --verify-no-changes
+    dotnet format 'client-mg/Armament.Client.MonoGame.sln' --verify-no-changes
 
     dotnet run --project 'shared-sim/Tests/SharedSim.Tests/Armament.SharedSim.Tests.csproj'
     dotnet run --project 'shared-sim/Tests/ContentValidation.Tests/Armament.ContentValidation.Tests.csproj'
+    New-Item -ItemType Directory -Force -Path (Join-Path $RootDir '.artifacts') | Out-Null
+    dotnet run --project 'ops/tools/AtlasValidator' -- --input-dir (Join-Path $RootDir 'content/animations') --fail-on-error --report-out (Join-Path $RootDir '.artifacts/atlas-validation-report.txt') --catalog-out (Join-Path $RootDir '.artifacts/atlas-catalog.json')
     dotnet run --project 'server-dotnet/Tests/GameServer.Tests/Armament.GameServer.Tests.csproj'
     dotnet run --project 'server-dotnet/Tests/Persistence.Tests/Armament.Persistence.Tests.csproj'
     dotnet build 'client-mg/Armament.Client.MonoGame/Armament.Client.MonoGame.csproj'
+    dotnet test 'client-mg/Tests/Armament.Client.MonoGame.Tests/Armament.Client.MonoGame.Tests.csproj'
+    dotnet build 'ops/tools/AtlasEditor/Armament.AtlasEditor.csproj'
 }
 finally {
     Pop-Location

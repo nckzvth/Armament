@@ -5,6 +5,10 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armament.Client.MonoGame", "Armament.Client.MonoGame\Armament.Client.MonoGame.csproj", "{7C2F57B9-4250-4291-8A1B-722A60FEE895}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armament.Client.MonoGame.Tests", "Tests\Armament.Client.MonoGame.Tests\Armament.Client.MonoGame.Tests.csproj", "{6AA85951-DA1F-46D7-918E-2714D343DD32}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,8 +31,23 @@ Global
 		{7C2F57B9-4250-4291-8A1B-722A60FEE895}.Release|x64.Build.0 = Release|Any CPU
 		{7C2F57B9-4250-4291-8A1B-722A60FEE895}.Release|x86.ActiveCfg = Release|Any CPU
 		{7C2F57B9-4250-4291-8A1B-722A60FEE895}.Release|x86.Build.0 = Release|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Debug|x64.Build.0 = Debug|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Debug|x86.Build.0 = Debug|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Release|x64.ActiveCfg = Release|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Release|x64.Build.0 = Release|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Release|x86.ActiveCfg = Release|Any CPU
+		{6AA85951-DA1F-46D7-918E-2714D343DD32}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6AA85951-DA1F-46D7-918E-2714D343DD32} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

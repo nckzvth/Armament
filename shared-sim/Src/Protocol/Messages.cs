@@ -138,16 +138,16 @@ public sealed class EntitySnapshot
     public ushort BuilderResource { get; set; }
     public ushort SpenderResource { get; set; }
     public ushort Currency { get; set; }
-    public byte FastCooldownTicks { get; set; }
-    public byte HeavyCooldownTicks { get; set; }
-    public byte Skill1CooldownTicks { get; set; }
-    public byte Skill2CooldownTicks { get; set; }
-    public byte Skill3CooldownTicks { get; set; }
-    public byte Skill4CooldownTicks { get; set; }
-    public byte Skill5CooldownTicks { get; set; }
-    public byte Skill6CooldownTicks { get; set; }
-    public byte Skill7CooldownTicks { get; set; }
-    public byte Skill8CooldownTicks { get; set; }
+    public ushort FastCooldownTicks { get; set; }
+    public ushort HeavyCooldownTicks { get; set; }
+    public ushort Skill1CooldownTicks { get; set; }
+    public ushort Skill2CooldownTicks { get; set; }
+    public ushort Skill3CooldownTicks { get; set; }
+    public ushort Skill4CooldownTicks { get; set; }
+    public ushort Skill5CooldownTicks { get; set; }
+    public ushort Skill6CooldownTicks { get; set; }
+    public ushort Skill7CooldownTicks { get; set; }
+    public ushort Skill8CooldownTicks { get; set; }
     public uint AggroTargetEntityId { get; set; }
     public ushort AggroThreatValue { get; set; }
     public byte ForcedTargetTicks { get; set; }
@@ -158,4 +158,5 @@ public sealed class EntitySnapshot
     public byte DebugLastCastTargetTeamCode { get; set; }
     public byte DebugLastCastAffectedCount { get; set; }
     public ushort DebugLastCastVfxCode { get; set; }
+    public byte DebugLastCastFeedbackTicks { get; set; }
 }

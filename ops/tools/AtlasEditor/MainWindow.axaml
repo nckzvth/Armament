@@ -1,0 +1,228 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Armament.AtlasEditor.MainWindow"
+        Width="1880"
+        Height="1080"
+        MinWidth="1420"
+        MinHeight="860"
+        Title="Armament Atlas Editor">
+  <Grid Margin="10" RowDefinitions="Auto,8,*,8,180">
+    <Border Grid.Row="0" Padding="10" BorderBrush="#2C3E70" BorderThickness="1" CornerRadius="6">
+      <Grid ColumnDefinitions="80,*,Auto,Auto,Auto,Auto,12,Auto,Auto,200,Auto,Auto,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Input Dir"/>
+        <TextBox x:Name="InputDirBox" Grid.Row="0" Grid.Column="1" Margin="8,0,8,0"/>
+        <Button Grid.Row="0" Grid.Column="2" Margin="0,0,6,0" Padding="12,6" Content="Load" Click="OnLoadClicked"/>
+        <Button Grid.Row="0" Grid.Column="3" Margin="0,0,6,0" Padding="12,6" Content="Validate" Click="OnValidateClicked"/>
+        <Button Grid.Row="0" Grid.Column="4" Margin="0,0,6,0" Padding="12,6" Content="Save Clip" Click="OnSaveClipClicked"/>
+        <Button Grid.Row="0" Grid.Column="5" Padding="12,6" Content="Save Mapping" Click="OnSaveMappingClicked"/>
+
+        <TextBlock Grid.Row="0" Grid.Column="7" VerticalAlignment="Center" Text="Zoom"/>
+        <Button Grid.Row="0" Grid.Column="8" Width="30" Height="30" Content="-" Click="OnZoomOutClicked"/>
+        <Slider x:Name="ZoomSlider" Grid.Row="0" Grid.Column="9" Margin="8,0,8,0" Minimum="0.25" Maximum="8" Value="1" ValueChanged="OnZoomChanged"/>
+        <Button Grid.Row="0" Grid.Column="10" Width="30" Height="30" Content="+" Click="OnZoomInClicked"/>
+        <Button Grid.Row="0" Grid.Column="11" Margin="8,0,6,0" Padding="10,6" Content="Zoom To Frame" Click="OnZoomToFrameClicked"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Filter"/>
+        <TextBox x:Name="ClipFilterBox" Grid.Row="1" Grid.Column="1" Margin="8,8,8,0" Watermark="Filter clips by class, folder, file name, or ID..." TextChanged="OnClipFilterChanged"/>
+        <Button Grid.Row="1" Grid.Column="2" Margin="0,8,6,0" Padding="12,6" Content="Normalize Class" Click="OnNormalizeClassClicked"/>
+        <TextBlock Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="9" Margin="0,10,0,0" Text="Tip: resize the three panes with splitters for browse/edit/mapping focus." Foreground="#9FB4E6"/>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="320,6,*,6,430">
+      <Border Grid.Column="0" Padding="8" BorderBrush="#2C3E70" BorderThickness="1" CornerRadius="6">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock FontWeight="Bold" Text="Assets"/>
+          <TreeView x:Name="AssetTree" Grid.Row="1" Margin="0,8,0,0" SelectionChanged="OnTreeSelectionChanged">
+            <TreeView.ItemTemplate>
+              <TreeDataTemplate ItemsSource="{Binding Children}">
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+              </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+          </TreeView>
+        </Grid>
+      </Border>
+
+      <GridSplitter Grid.Column="1" Width="6" Background="#2C3E70" ResizeDirection="Columns"/>
+
+      <Border Grid.Column="2" Padding="8" BorderBrush="#2C3E70" BorderThickness="1" CornerRadius="6">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="40,*,70,130">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Clip"/>
+            <TextBlock x:Name="ClipPathText" Grid.Column="1" Margin="6,0,10,0" VerticalAlignment="Center" Text="(none)" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="Frame"/>
+            <NumericUpDown x:Name="FrameIndexBox" Grid.Column="3" Width="120" Minimum="0" ValueChanged="OnFrameIndexChanged"/>
+          </Grid>
+
+          <Border Grid.Row="1" Margin="0,8,0,0" BorderBrush="#223355" BorderThickness="1" CornerRadius="4">
+            <ScrollViewer x:Name="AtlasScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <Canvas x:Name="AtlasCanvas" Background="#0D0D14">
+                <Image x:Name="AtlasImage"/>
+                <Rectangle x:Name="FrameRect" Stroke="#FF2222" StrokeThickness="2" Fill="#22FF0000" IsVisible="False"/>
+                <Ellipse x:Name="PivotPoint" Width="10" Height="10" Fill="#2CFF52" IsVisible="False"/>
+              </Canvas>
+            </ScrollViewer>
+          </Border>
+        </Grid>
+      </Border>
+
+      <GridSplitter Grid.Column="3" Width="6" Background="#2C3E70" ResizeDirection="Columns"/>
+
+      <Border Grid.Column="4" Padding="8" BorderBrush="#2C3E70" BorderThickness="1" CornerRadius="6">
+        <TabControl>
+          <TabItem Header="Frame">
+            <ScrollViewer>
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="Bold" Text="Frame Editor"/>
+                <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                  <TextBlock Grid.Row="0" Text="Direction"/>
+                  <NumericUpDown x:Name="DirectionBox" Grid.Column="1" Grid.Row="0" Minimum="0" Maximum="7" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="1" Text="Frame #"/>
+                  <NumericUpDown x:Name="FrameNumberBox" Grid.Column="1" Grid.Row="1" Minimum="0" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="2" Text="Time"/>
+                  <NumericUpDown x:Name="TimeBox" Grid.Column="1" Grid.Row="2" Increment="0.01" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="3" Text="X"/>
+                  <NumericUpDown x:Name="XBox" Grid.Column="1" Grid.Row="3" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="4" Text="Y"/>
+                  <NumericUpDown x:Name="YBox" Grid.Column="1" Grid.Row="4" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="5" Text="W"/>
+                  <NumericUpDown x:Name="WBox" Grid.Column="1" Grid.Row="5" Minimum="1" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="6" Text="H"/>
+                  <NumericUpDown x:Name="HBox" Grid.Column="1" Grid.Row="6" Minimum="1" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="7" Text="PivotX"/>
+                  <NumericUpDown x:Name="PivotXBox" Grid.Column="1" Grid.Row="7" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                  <TextBlock Grid.Row="8" Text="PivotY"/>
+                  <NumericUpDown x:Name="PivotYBox" Grid.Column="1" Grid.Row="8" Width="220" ValueChanged="OnFrameFieldChanged"/>
+                </Grid>
+
+                <Separator/>
+                <TextBlock FontWeight="Bold" Text="Auto Remap"/>
+                <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto">
+                  <TextBlock Grid.Row="0" Text="Search Padding" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="AutoPaddingBox" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="64" Value="4" Width="220"/>
+                  <TextBlock Grid.Row="1" Text="Alpha Threshold" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="AutoAlphaBox" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="255" Value="80" Width="220"/>
+                </Grid>
+                <CheckBox x:Name="CatchAllRemapBox" IsChecked="True" Content="Catch-all fallback for missed frames (recommended)"/>
+                <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto">
+                  <TextBlock Grid.Row="0" Text="Safety Pad (px)" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="AutoSafetyPadBox" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="16" Value="2" Width="220"/>
+                  <TextBlock Grid.Row="1" Text="Border Expand" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="AutoBorderExpandBox" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="32" Value="12" Width="220"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Normalize Clip (Recommended)" Padding="12,6" Click="OnNormalizeClipClicked"/>
+                  <Button Content="Auto-Remap Frame" Padding="12,6" Click="OnAutoRemapFrameClicked"/>
+                  <Button Content="Auto-Remap Clip" Padding="12,6" Click="OnAutoRemapClipClicked"/>
+                </StackPanel>
+
+                <Separator/>
+                <TextBlock FontWeight="Bold" Text="Pivot Stabilization"/>
+                <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto">
+                  <TextBlock Grid.Row="0" Text="Pivot Mode" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="PivotModeBox" Grid.Row="0" Grid.Column="1" Width="220" SelectedIndex="0">
+                    <ComboBoxItem Content="Foot Contact (Recommended)"/>
+                    <ComboBoxItem Content="Bottom Center"/>
+                  </ComboBox>
+                  <TextBlock Grid.Row="1" Text="Foot Band (px)" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="PivotFootBandBox" Grid.Row="1" Grid.Column="1" Minimum="1" Maximum="32" Value="6" Width="220"/>
+                </Grid>
+                <CheckBox x:Name="PivotLockXBox" IsChecked="True" Content="Lock X to median across clip (reduces side jitter)"/>
+                <CheckBox x:Name="PivotLockXPerDirectionBox" IsChecked="True" Content="Lock X per direction row (NE,E,SE,S,SW,W,NW,N)"/>
+                <CheckBox x:Name="PivotLockXFromReferenceBox" IsChecked="True" Content="Lock X from reference direction by frame (prevents left/right foot flip)"/>
+                <CheckBox x:Name="PivotTemporalSmoothYBox" IsChecked="True" Content="Temporal smooth Y per direction (reduces bounce)"/>
+                <CheckBox x:Name="PivotTemporalSmoothXBox" IsChecked="False" Content="Temporal smooth X per direction (optional)"/>
+                <TextBlock Foreground="#9FB4E6" Text="Direction rows are treated bottom->top as: NE, E, SE, S, SW, W, NW, N"/>
+                <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto">
+                  <TextBlock Grid.Row="0" Text="Reference Dir" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="PivotReferenceDirectionBox" Grid.Row="0" Grid.Column="1" Width="220" SelectedIndex="2">
+                    <ComboBoxItem Content="NE (0)"/>
+                    <ComboBoxItem Content="E (1)"/>
+                    <ComboBoxItem Content="SE (2)"/>
+                    <ComboBoxItem Content="S (3)"/>
+                    <ComboBoxItem Content="SW (4)"/>
+                    <ComboBoxItem Content="W (5)"/>
+                    <ComboBoxItem Content="NW (6)"/>
+                    <ComboBoxItem Content="N (7)"/>
+                  </ComboBox>
+                  <CheckBox x:Name="PivotPropagateYFromRefBox" Grid.Row="1" Grid.ColumnSpan="2" IsChecked="True" Content="Propagate Y from reference direction (foot grounding)"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Auto-Pivot Frame" Padding="12,6" Click="OnAutoPivotFrameClicked"/>
+                  <Button Content="Auto-Pivot Clip" Padding="12,6" Click="OnAutoPivotClipClicked"/>
+                  <Button Content="Propagate From Reference" Padding="12,6" Click="OnPropagateReferencePivotClicked"/>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Clip IDs">
+            <ScrollViewer>
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="Bold" Text="Clip IDs"/>
+                <TextBlock Text="Full Clip ID"/>
+                <TextBox x:Name="FullClipIdBox" IsReadOnly="True" TextWrapping="Wrap"/>
+                <TextBlock Text="Concise ID"/>
+                <TextBox x:Name="ConciseClipIdBox"/>
+                <WrapPanel Orientation="Horizontal" ItemHeight="32" ItemWidth="140">
+                  <Button Content="Copy Full" Click="OnCopyFullIdClicked"/>
+                  <Button Content="Copy Concise" Click="OnCopyConciseIdClicked"/>
+                </WrapPanel>
+                <Button Content="Apply Concise IDs (Class + Clipmaps)" Padding="12,8" Click="OnApplyConciseIdsClicked"/>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Mapping">
+            <ScrollViewer>
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="Bold" Text="Class Mapping"/>
+                <TextBlock x:Name="ClassIdText" Text="Class: (none)"/>
+                <TextBox x:Name="IdleClipBox" Watermark="idleClipId"/>
+                <TextBox x:Name="MoveClipBox" Watermark="moveClipId"/>
+                <TextBlock FontWeight="Bold" Text="Run Clips"/>
+                <TextBox x:Name="RunForwardClipBox" Watermark="runForwardClipId"/>
+                <TextBox x:Name="RunBackwardClipBox" Watermark="runBackwardClipId"/>
+                <TextBox x:Name="RunLeftClipBox" Watermark="runLeftClipId"/>
+                <TextBox x:Name="RunRightClipBox" Watermark="runRightClipId"/>
+                <TextBox x:Name="RunForwardLeftClipBox" Watermark="runForwardLeftClipId"/>
+                <TextBox x:Name="RunForwardRightClipBox" Watermark="runForwardRightClipId"/>
+                <TextBox x:Name="RunBackwardLeftClipBox" Watermark="runBackwardLeftClipId"/>
+                <TextBox x:Name="RunBackwardRightClipBox" Watermark="runBackwardRightClipId"/>
+                <TextBlock FontWeight="Bold" Text="Strafe Clips"/>
+                <TextBox x:Name="StrafeLeftClipBox" Watermark="strafeLeftClipId"/>
+                <TextBox x:Name="StrafeRightClipBox" Watermark="strafeRightClipId"/>
+                <TextBox x:Name="StrafeForwardLeftClipBox" Watermark="strafeForwardLeftClipId"/>
+                <TextBox x:Name="StrafeForwardRightClipBox" Watermark="strafeForwardRightClipId"/>
+                <TextBox x:Name="StrafeBackwardLeftClipBox" Watermark="strafeBackwardLeftClipId"/>
+                <TextBox x:Name="StrafeBackwardRightClipBox" Watermark="strafeBackwardRightClipId"/>
+                <TextBlock FontWeight="Bold" Text="Turn Clips"/>
+                <TextBox x:Name="TurnLeftClipBox" Watermark="turnLeftClipId"/>
+                <TextBox x:Name="TurnRightClipBox" Watermark="turnRightClipId"/>
+                <TextBox x:Name="BlockClipBox" Watermark="blockLoopClipId"/>
+                <TextBox x:Name="HeavyClipBox" Watermark="heavyClipId"/>
+                <TextBox x:Name="FastChainBox" Watermark="fastChainClipIds (comma-separated)"/>
+                <Separator/>
+                <TextBlock FontWeight="Bold" Text="Cast Slot Mapping"/>
+                <Grid ColumnDefinitions="30,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                  <TextBlock Grid.Row="0" Text="E"/><TextBox x:Name="CastEBox" Grid.Column="1" Grid.Row="0"/>
+                  <TextBlock Grid.Row="1" Text="R"/><TextBox x:Name="CastRBox" Grid.Column="1" Grid.Row="1"/>
+                  <TextBlock Grid.Row="2" Text="Q"/><TextBox x:Name="CastQBox" Grid.Column="1" Grid.Row="2"/>
+                  <TextBlock Grid.Row="3" Text="T"/><TextBox x:Name="CastTBox" Grid.Column="1" Grid.Row="3"/>
+                  <TextBlock Grid.Row="4" Text="1"/><TextBox x:Name="Cast1Box" Grid.Column="1" Grid.Row="4"/>
+                  <TextBlock Grid.Row="5" Text="2"/><TextBox x:Name="Cast2Box" Grid.Column="1" Grid.Row="5"/>
+                  <TextBlock Grid.Row="6" Text="3"/><TextBox x:Name="Cast3Box" Grid.Column="1" Grid.Row="6"/>
+                  <TextBlock Grid.Row="7" Text="4"/><TextBox x:Name="Cast4Box" Grid.Column="1" Grid.Row="7"/>
+                </Grid>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="4" Padding="8" BorderBrush="#2C3E70" BorderThickness="1" CornerRadius="6">
+      <TextBox x:Name="LogBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"/>
+    </Border>
+  </Grid>
+</Window>

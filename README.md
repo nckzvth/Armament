@@ -81,6 +81,28 @@ Config is persisted at:
 
 - `~/Library/Application Support/Armament/client-mg/config.json`
 
+## Atlas Validation
+
+- Atlas clip JSON + PNG bounds are validated by:
+  - `/Users/nckzvth/Projects/Armament/ops/tools/AtlasValidator`
+- It runs automatically in verify and fails fast for invalid frame rectangles.
+- Standalone run (source art or repo assets):
+  - `dotnet run --project /Users/nckzvth/Projects/Armament/ops/tools/AtlasValidator -- --input-dir /Users/nckzvth/Desktop/Art/Characters --fail-on-error`
+- Class animation mappings are explicit in:
+  - `/Users/nckzvth/Projects/Armament/content/animations/clipmaps/<class-id>.json`
+- Mapping template for new classes:
+  - `/Users/nckzvth/Projects/Armament/content/animations/clipmaps/_template.class.json`
+
+## Atlas Editor (GUI)
+
+- Desktop editor tool:
+  - `/Users/nckzvth/Projects/Armament/ops/tools/AtlasEditor`
+- Launch:
+  - `/Users/nckzvth/Projects/Armament/ops/scripts/run-atlas-editor.sh`
+  - `/Users/nckzvth/Projects/Armament/ops/scripts/run-atlas-editor.ps1`
+- Full usage:
+  - `/Users/nckzvth/Projects/Armament/docs/ATLAS_EDITOR.md`
+
 ## Verified MonoGame Parity Slice
 
 Current MonoGame parity proven against existing server contract:
@@ -110,10 +132,11 @@ Windows:
 `verify` runs:
 
 1. `dotnet --info`
-2. `dotnet format --verify-no-changes` (shared-sim + server)
+2. `dotnet format --verify-no-changes` (shared-sim + server + client-mg)
 3. shared-sim tests (determinism + content validation)
 4. server tests (game server + persistence integration)
 5. MonoGame client build
+6. MonoGame headless logic tests (`client-mg/Tests/Armament.Client.MonoGame.Tests`)
 
 ## Manual Playtest Checklist
 

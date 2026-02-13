@@ -1,0 +1,51 @@
+{
+  "Default": {
+    "IdleClipId": "",
+    "MoveClipId": "",
+    "RunForwardClipId": "",
+    "RunBackwardClipId": "",
+    "RunLeftClipId": "",
+    "RunRightClipId": "",
+    "RunForwardLeftClipId": "",
+    "RunForwardRightClipId": "",
+    "RunBackwardLeftClipId": "",
+    "RunBackwardRightClipId": "",
+    "StrafeLeftClipId": "",
+    "StrafeRightClipId": "",
+    "StrafeForwardLeftClipId": "",
+    "StrafeForwardRightClipId": "",
+    "StrafeBackwardLeftClipId": "",
+    "StrafeBackwardRightClipId": "",
+    "TurnLeftClipId": "",
+    "TurnRightClipId": "",
+    "BlockLoopClipId": "",
+    "HeavyClipId": "",
+    "FastChainClipIds": [
+      "",
+      "",
+      ""
+    ],
+    "CastClipBySlotLabel": {
+      "E": "",
+      "R": "",
+      "Q": "",
+      "T": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": ""
+    }
+  },
+  "Specs": {
+    "spec.<class>.<specA>": {
+      "CastClipBySlotLabel": {
+        "E": ""
+      }
+    },
+    "spec.<class>.<specB>": {
+      "CastClipBySlotLabel": {
+        "E": ""
+      }
+    }
+  }
+}
