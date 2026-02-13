@@ -21,6 +21,7 @@ try {
 
     dotnet run --project 'shared-sim/Tests/SharedSim.Tests/Armament.SharedSim.Tests.csproj'
     dotnet run --project 'shared-sim/Tests/ContentValidation.Tests/Armament.ContentValidation.Tests.csproj'
+    dotnet run --project 'shared-sim/Tests/WorldContentValidation.Tests/Armament.WorldContentValidation.Tests.csproj'
     New-Item -ItemType Directory -Force -Path (Join-Path $RootDir '.artifacts') | Out-Null
     dotnet run --project 'ops/tools/AtlasValidator' -- --input-dir (Join-Path $RootDir 'content/animations') --fail-on-error --report-out (Join-Path $RootDir '.artifacts/atlas-validation-report.txt') --catalog-out (Join-Path $RootDir '.artifacts/atlas-catalog.json')
     dotnet run --project 'server-dotnet/Tests/GameServer.Tests/Armament.GameServer.Tests.csproj'

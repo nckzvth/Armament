@@ -1,0 +1,1 @@
+{ "id": "enc.cc1.bell_pressure", "zoneId": "zone.cc1", "enemyIds": ["enemy.bone_skirmisher", "enemy.ribcage_archer"], "objectiveObjectIds": ["obj.bell_pylon"], "hazardIds": ["haz.bell_pulse"] }

@@ -1,3 +1,9 @@
 {
-  "id": "zone.bastion.bulwark.fissure"
+  "id": "zone.bastion.bulwark.fissure",
+  "radius_milli": 1600,
+  "duration_ms": 4333,
+  "tick_interval_ms": 333,
+  "damage_per_pulse": 3,
+  "heal_per_pulse": 0,
+  "status_duration_ms": 17
 }

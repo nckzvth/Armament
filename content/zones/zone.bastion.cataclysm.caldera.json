@@ -1,3 +1,10 @@
 {
-  "id": "zone.bastion.cataclysm.caldera"
+  "id": "zone.bastion.cataclysm.caldera",
+  "radius_milli": 2300,
+  "duration_ms": 5333,
+  "tick_interval_ms": 200,
+  "damage_per_pulse": 7,
+  "heal_per_pulse": 0,
+  "status_id": "status.bastion.cataclysm.scorched",
+  "status_duration_ms": 3000
 }

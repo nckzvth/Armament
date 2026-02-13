@@ -1,0 +1,11 @@
+{
+  "id": "enc.cp.seal_disturbed_plots",
+  "zoneId": "zone.cp",
+  "enemyIds": ["enemy.grave_scrabbler", "enemy.pallid_shambler"],
+  "objectiveObjectIds": ["obj.corpse_pile"],
+  "hazardIds": [],
+  "completionEventKind": "EnemyKilled",
+  "completionCount": 4,
+  "rewardItemCode": "item.quest.plot_seal",
+  "rewardItemQuantity": 1
+}

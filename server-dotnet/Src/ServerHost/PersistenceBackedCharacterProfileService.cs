@@ -137,7 +137,9 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
                         Constitution = existing.Attributes.Constitution
                     },
                     BaseClassId: existing.BaseClassId,
-                    SpecId: existing.SpecId));
+                    SpecId: existing.SpecId,
+                    InventoryJson: string.IsNullOrWhiteSpace(existing.InventoryJson) ? "{}" : existing.InventoryJson,
+                    QuestProgressJson: string.IsNullOrWhiteSpace(existing.QuestProgressJson) ? "{}" : existing.QuestProgressJson));
         }
 
         var derived = CharacterMath.ComputeDerived(CharacterAttributes.Default, CharacterStatTuning.Default);
@@ -175,7 +177,7 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
         var loaded = await characters.GetAsync(characterId, cancellationToken);
         if (loaded is null)
         {
-            return new ResolvedCharacterLoad(characterId, characterName, new CharacterProfileData(1, 0, 0, CharacterAttributes.Default, baseClassId, specId));
+            return new ResolvedCharacterLoad(characterId, characterName, new CharacterProfileData(1, 0, 0, CharacterAttributes.Default, baseClassId, specId, "{}"));
         }
 
         return new ResolvedCharacterLoad(
@@ -193,7 +195,9 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
                     Constitution = loaded.Attributes.Constitution
                 },
                 BaseClassId: loaded.BaseClassId,
-                SpecId: loaded.SpecId));
+                SpecId: loaded.SpecId,
+                InventoryJson: string.IsNullOrWhiteSpace(loaded.InventoryJson) ? "{}" : loaded.InventoryJson,
+                QuestProgressJson: string.IsNullOrWhiteSpace(loaded.QuestProgressJson) ? "{}" : loaded.QuestProgressJson));
     }
 
     private async Task SaveProfileAsync(CharacterProfileSaveRequest request, CancellationToken cancellationToken)
@@ -214,6 +218,8 @@ public sealed class PersistenceBackedCharacterProfileService : ICharacterProfile
                 request.Profile.Attributes.Will,
                 request.Profile.Attributes.Alacrity,
                 request.Profile.Attributes.Constitution),
+            request.Profile.InventoryJson,
+            request.Profile.QuestProgressJson,
             cancellationToken);
     }
 

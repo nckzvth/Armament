@@ -1,0 +1,7 @@
+{
+  "id": "zone.ig",
+  "key": "IG",
+  "name": "Inner Graveyard",
+  "encounterIds": ["enc.ig.disable_bell_pylons", "enc.ig.break_relic_anchors", "enc.ig.reliquary_shade"],
+  "mapFile": "maps/zone.ig.tiled.json"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "zone.ma",
+  "key": "MA",
+  "name": "Mausoleum",
+  "encounterIds": ["enc.ma.grave_gas_corridor", "enc.ma.ossuary_warden"],
+  "mapFile": "maps/zone.ma.tiled.json"
+}

@@ -1,3 +1,8 @@
 {
-  "id": "link.dreadweaver.deceiver.chain_snare"
+  "id": "link.dreadweaver.deceiver.chain_snare",
+  "duration_ms": 4333,
+  "max_distance_milli": 6200,
+  "pull_milli_per_tick": 60,
+  "damage_per_tick": 3,
+  "max_active_links": 1
 }

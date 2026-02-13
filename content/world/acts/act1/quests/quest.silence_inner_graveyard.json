@@ -1,0 +1,1 @@
+{ "id": "quest.act1.silence_inner_graveyard", "title": "Silence The Inner Graveyard", "prerequisiteQuestIds": ["quest.act1.break_graveyard_gate"], "objectives": [{ "type": "DestroyObjectType", "targetId": "obj.bell_pylon", "count": 2 }, { "type": "DestroyObjectType", "targetId": "obj.relic_anchor", "count": 2 }] }

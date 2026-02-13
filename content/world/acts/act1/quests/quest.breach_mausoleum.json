@@ -1,0 +1,1 @@
+{ "id": "quest.act1.breach_mausoleum", "title": "Breach The Mausoleum", "prerequisiteQuestIds": ["quest.act1.silence_inner_graveyard"], "objectives": [{ "type": "CompleteEncounter", "targetId": "enc.ma.ossuary_warden", "count": 1 }] }

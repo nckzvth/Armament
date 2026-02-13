@@ -1,3 +1,10 @@
 {
-  "id": "zone.exorcist.inquisitor.abjuration_field"
+  "id": "zone.exorcist.inquisitor.abjuration_field",
+  "radius_milli": 1900,
+  "duration_ms": 5000,
+  "tick_interval_ms": 300,
+  "damage_per_pulse": 5,
+  "heal_per_pulse": 0,
+  "status_id": "status.exorcist.inquisitor.bound",
+  "status_duration_ms": 3000
 }

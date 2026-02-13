@@ -1,0 +1,1 @@
+{ "id": "enc.ma.grave_gas_corridor", "zoneId": "zone.ma", "enemyIds": ["enemy.skinwalker_husk", "enemy.coffin_hauler"], "objectiveObjectIds": [], "hazardIds": ["haz.grave_gas_vent"] }

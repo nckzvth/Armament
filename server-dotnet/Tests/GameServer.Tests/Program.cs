@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Linq;
+using Armament.GameServer.Campaign;
 using Armament.GameServer;
 using Armament.GameServer.Persistence;
 using Armament.SharedSim.Protocol;
@@ -289,6 +290,7 @@ await ProfileSaveEnqueueAssertionsAsync();
 await ProfileSpecRepairAssertionsAsync();
 await ProfileSpecRequestedOverrideAssertionsAsync();
 await LinkReplicationAssertionsAsync();
+CampPerimeterRuntimeAssertions();
 
 if (failures.Count > 0)
 {
@@ -303,6 +305,69 @@ if (failures.Count > 0)
 
 Console.WriteLine("GameServer tests passed.");
 return 0;
+
+void CampPerimeterRuntimeAssertions()
+{
+    var runtime = new CampPerimeterRuntime(new Dictionary<string, CampaignEncounterDefinition>(StringComparer.Ordinal)
+    {
+        ["enc.cp.perimeter_breach"] = new CampaignEncounterDefinition
+        {
+            Id = "enc.cp.perimeter_breach",
+            CompletionEventKind = CampaignCompletionEventKind.EnemyKilled,
+            CompletionCount = 2,
+            RewardItemCode = "item.quest.camp_supply",
+            RewardItemQuantity = 1
+        }
+    }, new Dictionary<string, CampaignQuestDefinition>(StringComparer.Ordinal)
+    {
+        ["quest.act1.contract_board"] = new CampaignQuestDefinition
+        {
+            Id = "quest.act1.contract_board",
+            Objectives =
+            {
+                new CampaignQuestObjectiveDefinition
+                {
+                    Type = "TalkToNpc",
+                    TargetId = "npc.quartermaster",
+                    Count = 1
+                },
+                new CampaignQuestObjectiveDefinition
+                {
+                    Type = "CompleteEncounter",
+                    TargetId = "enc.cp.perimeter_breach",
+                    Count = 1
+                }
+            }
+        }
+    });
+
+    var playerEntityId = 42u;
+    var npcRuntimeId = 9001u;
+    var characterId = Guid.NewGuid();
+    runtime.RestoreCharacterState(characterId, "{}");
+    var objectiveSnapshots = runtime.BuildObjectiveSnapshots(characterId);
+    Assert(objectiveSnapshots.Count > 0, "camp perimeter runtime did not build quest objective snapshots for character");
+    Assert(objectiveSnapshots.Any(x => x.Kind == "TalkToNpc" && x.Current == 0), "talk objective should not be pre-completed");
+
+    var completions = runtime.Consume(
+        new List<SimEventRecord>
+        {
+            new() { Kind = SimEventKind.NpcInteracted, PlayerEntityId = playerEntityId, SubjectEntityId = npcRuntimeId },
+            new() { Kind = SimEventKind.EnemyKilled, PlayerEntityId = playerEntityId },
+            new() { Kind = SimEventKind.EnemyKilled, PlayerEntityId = playerEntityId }
+        },
+        entity => entity == playerEntityId ? characterId : null,
+        resolveNpcIdByRuntimeId: runtimeNpcId => runtimeNpcId == npcRuntimeId ? "npc.quartermaster" : null);
+
+    Assert(completions.Count == 1, "camp perimeter runtime did not emit completion");
+    Assert(completions.Count == 1 && completions[0].CharacterId == characterId, "camp perimeter runtime mapped wrong character");
+    Assert(completions.Count == 1 && completions[0].RewardItemCode == "item.quest.camp_supply", "camp perimeter runtime reward mismatch");
+
+    var secondPass = runtime.Consume(
+        new List<SimEventRecord> { new() { Kind = SimEventKind.EnemyKilled, PlayerEntityId = playerEntityId } },
+        entity => entity == playerEntityId ? characterId : null);
+    Assert(secondPass.Count == 0, "camp perimeter runtime should not repeat completed encounter reward");
+}
 
 static async Task<UdpReceiveResult?> ReceiveWithTimeoutAsync(UdpClient client, TimeSpan timeout)
 {
@@ -381,6 +446,8 @@ async Task LinkReplicationAssertionsAsync()
             [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1,
             [profile.Id] = profile
         },
+        new Dictionary<string, SimZoneDefinition>(StringComparer.Ordinal),
+        new Dictionary<string, SimLinkDefinition>(StringComparer.Ordinal),
         profile.Id,
         "test links");
 
@@ -470,7 +537,7 @@ async Task LinkReplicationAssertionsAsync()
             continue;
         }
 
-        if (snap.Entities.Any(x => x.Kind == EntityKind.Link))
+        if (snap.Links.Count > 0)
         {
             sawLink = true;
             break;
@@ -525,7 +592,8 @@ async Task ProfileLoadAssertionsAsync()
         Currency: 99,
         Attributes: new CharacterAttributes { Might = 12, Will = 8, Alacrity = 11, Constitution = 10 },
         BaseClassId: "bastion",
-        SpecId: "spec.bastion.bulwark"));
+        SpecId: "spec.bastion.bulwark",
+        InventoryJson: "{}"));
 
     await using var profileServer = new AuthoritativeServer(
         port: 19101,
@@ -623,7 +691,8 @@ async Task ProfileSpecRepairAssertionsAsync()
             Currency: 33,
             Attributes: new CharacterAttributes { Might = 11, Will = 10, Alacrity = 9, Constitution = 12 },
             BaseClassId: "arbiter",
-            SpecId: "spec.arbiter.aegis"));
+            SpecId: "spec.arbiter.aegis",
+            InventoryJson: "{}"));
 
     var menaceProfile = new SimAbilityProfile { Id = "spec.dreadweaver.menace" };
     menaceProfile.AbilitiesByFlag[InputActionFlags.Skill2] = new SimAbilityDefinition
@@ -645,6 +714,8 @@ async Task ProfileSpecRepairAssertionsAsync()
             [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1,
             [menaceProfile.Id] = menaceProfile
         },
+        new Dictionary<string, SimZoneDefinition>(StringComparer.Ordinal),
+        new Dictionary<string, SimLinkDefinition>(StringComparer.Ordinal),
         fallbackSpecId: SimAbilityProfiles.BuiltinV1.Id,
         message: "repair-spec-test");
 
@@ -708,7 +779,8 @@ async Task ProfileSpecRequestedOverrideAssertionsAsync()
             Currency: 42,
             Attributes: new CharacterAttributes { Might = 10, Will = 13, Alacrity = 11, Constitution = 12 },
             BaseClassId: "tidebinder",
-            SpecId: "spec.tidebinder.tidecaller"));
+            SpecId: "spec.tidebinder.tidecaller",
+            InventoryJson: "{}"));
 
     var tidecallerProfile = new SimAbilityProfile { Id = "spec.tidebinder.tidecaller" };
     var tempestProfile = new SimAbilityProfile { Id = "spec.tidebinder.tempest" };
@@ -720,6 +792,8 @@ async Task ProfileSpecRequestedOverrideAssertionsAsync()
             [tidecallerProfile.Id] = tidecallerProfile,
             [tempestProfile.Id] = tempestProfile
         },
+        new Dictionary<string, SimZoneDefinition>(StringComparer.Ordinal),
+        new Dictionary<string, SimLinkDefinition>(StringComparer.Ordinal),
         fallbackSpecId: SimAbilityProfiles.BuiltinV1.Id,
         message: "requested-spec-override-test");
 
@@ -840,7 +914,7 @@ sealed class TrackingProfileService : ICharacterProfileService
             request.EndpointKey,
             new Guid(idBytes),
             request.PreferredCharacterName,
-            new CharacterProfileData(1, 0, 0, CharacterAttributes.Default, "bastion", "spec.bastion.bulwark")));
+            new CharacterProfileData(1, 0, 0, CharacterAttributes.Default, "bastion", "spec.bastion.bulwark", "{}")));
         return true;
     }
 

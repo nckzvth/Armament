@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Armament.SharedSim.Protocol;
 using Armament.SharedSim.Sim;
 
@@ -23,6 +24,8 @@ var traces = LoadById<TraceDefinition>(Path.Combine(contentRoot, "traces"), fail
 
 ValidateSpecCoverage(specs, abilities, statuses, failures);
 ValidateAbilities(abilities, statuses, zones, links, projectiles, traces, failures);
+ValidateZoneDefinitions(zones, failures);
+ValidateLinkDefinitions(links, failures);
 ValidateProfileCompilation(specs, abilities, failures);
 ValidateBastionCataclysmMappings(specs, abilities, failures);
 ValidateTempestSkill3Mapping(specs, abilities, failures);
@@ -296,6 +299,67 @@ static void ValidateProfileCompilation(
     }
 }
 
+static void ValidateZoneDefinitions(
+    IReadOnlyDictionary<string, ZoneDefinition> zones,
+    List<string> failures)
+{
+    foreach (var zone in zones.Values)
+    {
+        if (zone.RadiusMilli <= 0)
+        {
+            failures.Add($"Zone '{zone.Id}' has invalid radius_milli '{zone.RadiusMilli}'.");
+        }
+
+        if (zone.DurationMs <= 0)
+        {
+            failures.Add($"Zone '{zone.Id}' has invalid duration_ms '{zone.DurationMs}'.");
+        }
+
+        if (zone.TickIntervalMs <= 0)
+        {
+            failures.Add($"Zone '{zone.Id}' has invalid tick_interval_ms '{zone.TickIntervalMs}'.");
+        }
+
+        if (zone.DamagePerPulse < 0 || zone.HealPerPulse < 0)
+        {
+            failures.Add($"Zone '{zone.Id}' has negative pulse values (damage={zone.DamagePerPulse}, heal={zone.HealPerPulse}).");
+        }
+
+        if (!string.IsNullOrWhiteSpace(zone.StatusId) && zone.StatusDurationMs <= 0)
+        {
+            failures.Add($"Zone '{zone.Id}' defines status '{zone.StatusId}' but has invalid status_duration_ms '{zone.StatusDurationMs}'.");
+        }
+    }
+}
+
+static void ValidateLinkDefinitions(
+    IReadOnlyDictionary<string, LinkDefinition> links,
+    List<string> failures)
+{
+    foreach (var link in links.Values)
+    {
+        if (link.DurationMs <= 0)
+        {
+            failures.Add($"Link '{link.Id}' has invalid duration_ms '{link.DurationMs}'.");
+        }
+
+        if (link.MaxDistanceMilli <= 0)
+        {
+            failures.Add($"Link '{link.Id}' has invalid max_distance_milli '{link.MaxDistanceMilli}'.");
+        }
+
+        if (link.PullMilliPerTick < 0 || link.DamagePerTick < 0)
+        {
+            failures.Add($"Link '{link.Id}' has negative pull/damage values (pull={link.PullMilliPerTick}, damage={link.DamagePerTick}).");
+        }
+
+        if (link.MaxActiveLinks <= 0)
+        {
+            failures.Add($"Link '{link.Id}' has invalid max_active_links '{link.MaxActiveLinks}'.");
+        }
+    }
+}
+
 static void ValidateTempestSkill3Mapping(
     IReadOnlyDictionary<string, SimSpecContent> specs,
     IReadOnlyDictionary<string, SimAbilityContent> abilities,
@@ -556,12 +620,38 @@ public sealed class StatusDefinition
 
 public sealed class ZoneDefinition
 {
+    [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("radius_milli")]
+    public int RadiusMilli { get; set; }
+    [JsonPropertyName("duration_ms")]
+    public int DurationMs { get; set; }
+    [JsonPropertyName("tick_interval_ms")]
+    public int TickIntervalMs { get; set; }
+    [JsonPropertyName("damage_per_pulse")]
+    public int DamagePerPulse { get; set; }
+    [JsonPropertyName("heal_per_pulse")]
+    public int HealPerPulse { get; set; }
+    [JsonPropertyName("status_id")]
+    public string? StatusId { get; set; }
+    [JsonPropertyName("status_duration_ms")]
+    public int StatusDurationMs { get; set; }
 }
 
 public sealed class LinkDefinition
 {
+    [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("duration_ms")]
+    public int DurationMs { get; set; }
+    [JsonPropertyName("max_distance_milli")]
+    public int MaxDistanceMilli { get; set; }
+    [JsonPropertyName("pull_milli_per_tick")]
+    public int PullMilliPerTick { get; set; }
+    [JsonPropertyName("damage_per_tick")]
+    public int DamagePerTick { get; set; }
+    [JsonPropertyName("max_active_links")]
+    public int MaxActiveLinks { get; set; }
 }
 
 public sealed class ProjectileDefinition

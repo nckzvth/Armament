@@ -1,0 +1,1 @@
+{ "id": "enc.ma.ossuary_warden", "zoneId": "zone.ma", "enemyIds": ["enemy.ossuary_warden"], "objectiveObjectIds": [], "hazardIds": ["haz.grave_gas_vent"] }

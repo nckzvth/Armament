@@ -1,0 +1,5 @@
+[
+  { "id": "haz.desecration_circle", "zoneDefId": "zone.world.hazard.desecration_circle", "tickIntervalMs": 1000, "durationMs": 8000, "effectTags": ["damage", "enemy_buff"] },
+  { "id": "haz.grave_gas_vent", "zoneDefId": "zone.world.hazard.grave_gas_vent", "tickIntervalMs": 700, "durationMs": 6000, "effectTags": ["damage", "slow"] },
+  { "id": "haz.bell_pulse", "zoneDefId": "zone.world.hazard.bell_pulse", "tickIntervalMs": 1200, "durationMs": 10000, "effectTags": ["disrupt", "threat_amp"] }
+]

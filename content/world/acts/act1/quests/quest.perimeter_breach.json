@@ -1,0 +1,1 @@
+{ "id": "quest.act1.perimeter_breach", "title": "Perimeter Breach", "prerequisiteQuestIds": ["quest.act1.contract_board"], "objectives": [{ "type": "CompleteEncounter", "targetId": "enc.cp.perimeter_breach", "count": 1 }, { "type": "DestroyObjectType", "targetId": "obj.corpse_pile", "count": 3 }] }

@@ -1,3 +1,10 @@
 {
-  "id": "zone.tidebinder.tempest.maelstrom"
+  "id": "zone.tidebinder.tempest.maelstrom",
+  "radius_milli": 2400,
+  "duration_ms": 6000,
+  "tick_interval_ms": 200,
+  "damage_per_pulse": 5,
+  "heal_per_pulse": 0,
+  "status_id": "status.tidebinder.tempest.soaked",
+  "status_duration_ms": 3000
 }

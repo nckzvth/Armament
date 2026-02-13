@@ -1,1 +1,8 @@
-{ "id": "link.arbiter.edict.constellation_link" }
+{
+  "id": "link.arbiter.edict.constellation_link",
+  "duration_ms": 4667,
+  "max_distance_milli": 7000,
+  "pull_milli_per_tick": 0,
+  "damage_per_tick": 2,
+  "max_active_links": 3
+}

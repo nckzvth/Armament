@@ -1,3 +1,9 @@
 {
-  "id": "zone.bastion.bulwark.caldera"
+  "id": "zone.bastion.bulwark.caldera",
+  "radius_milli": 2200,
+  "duration_ms": 5333,
+  "tick_interval_ms": 233,
+  "damage_per_pulse": 6,
+  "heal_per_pulse": 0,
+  "status_duration_ms": 17
 }

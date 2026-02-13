@@ -17,6 +17,8 @@ public interface ICharacterRepository
         long experience,
         int currency,
         CharacterAttributesRecord attributes,
+        string inventoryJson,
+        string questProgressJson,
         CancellationToken cancellationToken);
 }
 

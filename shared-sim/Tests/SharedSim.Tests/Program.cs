@@ -1,4 +1,5 @@
 using Armament.SharedSim.Determinism;
+using Armament.SharedSim.Inventory;
 using Armament.SharedSim.Protocol;
 using Armament.SharedSim.Sim;
 
@@ -18,6 +19,61 @@ void ProtocolRoundtripAssertions()
     {
         ServerTick = 42,
         LastProcessedInputSequence = 19,
+        WorldObjects =
+        {
+            new WorldObjectSnapshot
+            {
+                ObjectId = 7001,
+                ObjectDefId = "obj.bell_pylon",
+                Archetype = "objective",
+                EncounterId = "enc.ig.disable_bell_pylons",
+                QuantizedX = 120,
+                QuantizedY = -30,
+                Health = 120,
+                MaxHealth = 220,
+                ObjectiveState = 1
+            }
+        },
+        Hazards =
+        {
+            new WorldHazardSnapshot
+            {
+                HazardRuntimeId = 8101,
+                HazardId = "haz.bell_pulse",
+                EncounterId = "enc.ig.disable_bell_pylons",
+                QuantizedX = 120,
+                QuantizedY = -30,
+                RemainingTicks = 45,
+                ObjectiveState = 1
+            }
+        },
+        Npcs =
+        {
+            new WorldNpcSnapshot
+            {
+                NpcRuntimeId = 9101,
+                NpcId = "npc.quartermaster",
+                ZoneId = "zone.cp",
+                Name = "Quartermaster",
+                QuantizedX = 40,
+                QuantizedY = -10,
+                InteractRadiusDeciUnits = 20,
+                ObjectiveState = 1
+            }
+        },
+        Objectives =
+        {
+            new WorldObjectiveSnapshot
+            {
+                ObjectiveId = "quest.act1.silence_inner_graveyard:obj:0",
+                EncounterId = "enc.ig.disable_bell_pylons",
+                Kind = "DestroyObjectType",
+                TargetId = "obj.bell_pylon",
+                Current = 1,
+                Required = 2,
+                State = 1
+            }
+        },
         Entities =
         {
             new EntitySnapshot
@@ -54,6 +110,10 @@ void ProtocolRoundtripAssertions()
     var decoded = decodedMsg as WorldSnapshot;
     Assert(decoded is not null, "decoded message type mismatch");
     Assert(decoded!.Entities.Count == 2, "snapshot entity count mismatch");
+    Assert(decoded.WorldObjects.Count == 1, "snapshot world object count mismatch");
+    Assert(decoded.Hazards.Count == 1, "snapshot hazard count mismatch");
+    Assert(decoded.Npcs.Count == 1, "snapshot npc count mismatch");
+    Assert(decoded.Objectives.Count == 1, "snapshot objective count mismatch");
     Assert(decoded.LastProcessedInputSequence == 19, "snapshot ack mismatch");
     Assert(decoded.Entities[1].Kind == EntityKind.Enemy, "snapshot entity kind mismatch");
     Assert(decoded.Entities[1].DebugLastCastSlotCode == 9, "snapshot cast slot feedback mismatch");
@@ -195,6 +255,9 @@ void LootPickupAssertions()
     enemy!.Health = 1;
     player!.ActionFlags = InputActionFlags.FastAttackHold;
     OverworldSimulator.Step(state, rules);
+    Assert(
+        state.SimEvents.Any(e => e.Kind == SimEventKind.EnemyKilled && e.PlayerEntityId == player.EntityId && e.SubjectEntityId == enemy.EntityId),
+        "enemy kill event was not emitted");
 
     var hasLoot = false;
     foreach (var loot in state.LootDrops.Values)
@@ -212,6 +275,9 @@ void LootPickupAssertions()
     player.ActionFlags = InputActionFlags.Pickup;
     OverworldSimulator.Step(state, rules);
     Assert(player.Character.Currency > currencyBefore, "click/pickup flag did not grant gold currency");
+    Assert(
+        state.SimEvents.Any(e => e.Kind == SimEventKind.TokenCollected && e.PlayerEntityId == player.EntityId),
+        "token collected event was not emitted for manual pickup");
 
     // Verify auto-loot still works without explicit pickup for auto-loot-enabled drops.
     state = BuildCombatState();
@@ -235,6 +301,9 @@ void LootPickupAssertions()
     OverworldSimulator.Step(state, rules);
 
     Assert(player.Character.Currency > currencyBefore, "gold auto-loot did not trigger");
+    Assert(
+        state.SimEvents.Any(e => e.Kind == SimEventKind.TokenCollected && e.PlayerEntityId == player.EntityId),
+        "token collected event was not emitted for auto loot");
 
     // Verify non-auto loot requires explicit pickup action.
     state = BuildCombatState();
@@ -924,6 +993,142 @@ void TargetedCastValidationAssertions()
     Assert(player.DebugLastConsumedStatusStacks > 0, "consume-status cast should report consumed stacks");
 }
 
+void InventoryGridAndEquipAssertions()
+{
+    var catalog = new DictionaryInventoryItemCatalog(new Dictionary<string, InventoryItemDefinition>(StringComparer.Ordinal)
+    {
+        ["item.sword.iron"] = new InventoryItemDefinition
+        {
+            ItemCode = "item.sword.iron",
+            MaxStack = 1,
+            GridWidth = 1,
+            GridHeight = 3,
+            EquipSlots = { EquipSlot.MainHand },
+            EquipUniqueKey = "weapon.mainhand"
+        },
+        ["item.shield.wood"] = new InventoryItemDefinition
+        {
+            ItemCode = "item.shield.wood",
+            MaxStack = 1,
+            GridWidth = 2,
+            GridHeight = 2,
+            EquipSlots = { EquipSlot.OffHand },
+            EquipUniqueKey = "weapon.offhand"
+        },
+        ["item.ring.guard"] = new InventoryItemDefinition
+        {
+            ItemCode = "item.ring.guard",
+            MaxStack = 1,
+            GridWidth = 1,
+            GridHeight = 1,
+            EquipSlots = { EquipSlot.Ring1, EquipSlot.Ring2 },
+            EquipUniqueKey = "ring.guard"
+        },
+        ["item.potion.small"] = new InventoryItemDefinition
+        {
+            ItemCode = "item.potion.small",
+            MaxStack = 20,
+            GridWidth = 1,
+            GridHeight = 1
+        }
+    });
+
+    var inventory = new InventorySnapshot
+    {
+        BackpackWidth = 5,
+        BackpackHeight = 6
+    };
+    InventoryRules.EnsureBackpackSize(inventory);
+
+    var addSword = InventoryOps.AddToBackpack(inventory, catalog, new InventoryItemStack { ItemCode = "item.sword.iron", Quantity = 1 });
+    var addShield = InventoryOps.AddToBackpack(inventory, catalog, new InventoryItemStack { ItemCode = "item.shield.wood", Quantity = 1 });
+    var addRings = InventoryOps.AddToBackpack(inventory, catalog, new InventoryItemStack { ItemCode = "item.ring.guard", Quantity = 2 });
+    var addPotions = InventoryOps.AddToBackpack(inventory, catalog, new InventoryItemStack { ItemCode = "item.potion.small", Quantity = 12 });
+    Assert(addSword.Success && addShield.Success && addRings.Success && addPotions.Success, "inventory add failed");
+
+    GridCoord FindCell(string itemCode)
+    {
+        for (var i = 0; i < inventory.BackpackItems.Count; i++)
+        {
+            if (string.Equals(inventory.BackpackItems[i].ItemCode, itemCode, StringComparison.Ordinal))
+            {
+                return inventory.BackpackItems[i].Position;
+            }
+        }
+
+        return new GridCoord { X = -1, Y = -1 };
+    }
+
+    var swordCell = FindCell("item.sword.iron");
+    var sword = inventory.BackpackItems.Find(x => string.Equals(x.ItemCode, "item.sword.iron", StringComparison.Ordinal));
+    Assert(sword is not null, "sword should exist in backpack before move");
+    var moveTarget = new GridCoord { X = -1, Y = -1 };
+    for (var y = 0; y < inventory.BackpackHeight; y++)
+    {
+        for (var x = 0; x < inventory.BackpackWidth; x++)
+        {
+            var candidate = new GridCoord { X = x, Y = y };
+            if (candidate.X == swordCell.X && candidate.Y == swordCell.Y)
+            {
+                continue;
+            }
+
+            if (InventoryRules.CanPlaceAt(inventory, catalog, "item.sword.iron", candidate, sword!.InstanceId))
+            {
+                moveTarget = candidate;
+                break;
+            }
+        }
+
+        if (moveTarget.X >= 0)
+        {
+            break;
+        }
+    }
+
+    var move = InventoryOps.MoveBackpack(inventory, catalog, new InventoryMoveRequest
+    {
+        FromContainer = InventoryContainerKind.Backpack,
+        ToContainer = InventoryContainerKind.Backpack,
+        FromBackpackCell = swordCell,
+        ToBackpackCell = moveTarget,
+        Quantity = 5
+    });
+    Assert(move.Success, "grid move failed");
+
+    var equipSword = InventoryOps.BackpackToEquip(inventory, catalog, new BackpackToEquipRequest
+    {
+        BackpackCell = FindCell("item.sword.iron"),
+        TargetSlot = EquipSlot.MainHand
+    });
+    var shieldCell = FindCell("item.shield.wood");
+    var shieldIndex = shieldCell.Y * inventory.BackpackWidth + shieldCell.X;
+    var equipShield = InventoryOps.QuickEquip(inventory, catalog, backpackIndex: shieldIndex);
+    Assert(equipSword.Success && equipShield.Success, "quick equip failed");
+    Assert(inventory.Equipment.TryGetValue(EquipSlot.MainHand, out var mh) && mh is not null, "main hand not equipped");
+    Assert(inventory.Equipment.TryGetValue(EquipSlot.OffHand, out var oh) && oh is not null, "off hand not equipped");
+
+    var ringFromBackpack = InventoryOps.BackpackToEquip(inventory, catalog, new BackpackToEquipRequest
+    {
+        BackpackCell = FindCell("item.ring.guard"),
+        TargetSlot = EquipSlot.Ring1
+    });
+    Assert(ringFromBackpack.Success, "ring equip 1 failed");
+
+    var secondRingCell = FindCell("item.ring.guard");
+    var secondRingFromBackpack = InventoryOps.BackpackToEquip(inventory, catalog, new BackpackToEquipRequest
+    {
+        BackpackCell = secondRingCell,
+        TargetSlot = EquipSlot.Ring2
+    });
+    Assert(!secondRingFromBackpack.Success, "unique ring should not equip twice");
+
+    var encode = InventoryJsonCodec.Serialize(inventory);
+    var decode = InventoryJsonCodec.DeserializeOrDefault(encode, 5, 6);
+    Assert(decode.BackpackWidth == 5 && decode.BackpackHeight == 6, "inventory json codec layout mismatch");
+    Assert(decode.BackpackItems.Count > 0, "inventory json codec item decode mismatch");
+}
+
 ProtocolRoundtripAssertions();
 RngAssertions();
 CharacterMathAssertions();
@@ -939,6 +1144,7 @@ LinkPrimitiveAssertions();
 HealingAssertions();
 TempestDamageZoneAssertions();
 TargetedCastValidationAssertions();
+InventoryGridAndEquipAssertions();
 
 if (failures.Count > 0)
 {

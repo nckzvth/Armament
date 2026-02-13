@@ -1,0 +1,7 @@
+{
+  "id": "zone.bt",
+  "key": "BT",
+  "name": "Bloody Thicket",
+  "encounterIds": ["enc.bt.cleanse_grove", "enc.bt.survivor_escort", "enc.bt.thief_stash"],
+  "mapFile": "maps/zone.bt.tiled.json"
+}

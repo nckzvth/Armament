@@ -93,6 +93,75 @@ public static class ProtocolCodec
                     writer.Write(entity.DebugLastCastAffectedCount);
                     writer.Write(entity.DebugLastCastVfxCode);
                     writer.Write(entity.DebugLastCastFeedbackTicks);
+                    writer.Write(entity.ArchetypeId);
+                }
+                writer.Write((ushort)snapshot.Zones.Count);
+                foreach (var zone in snapshot.Zones)
+                {
+                    writer.Write(zone.ZoneRuntimeId);
+                    writer.Write(zone.ZoneDefId);
+                    writer.Write(zone.QuantizedX);
+                    writer.Write(zone.QuantizedY);
+                    writer.Write(zone.RemainingTicks);
+                    writer.Write(zone.RadiusDeciUnits);
+                }
+                writer.Write((ushort)snapshot.Links.Count);
+                foreach (var link in snapshot.Links)
+                {
+                    writer.Write(link.LinkRuntimeId);
+                    writer.Write(link.LinkDefId);
+                    writer.Write(link.OwnerEntityId);
+                    writer.Write(link.TargetEntityId);
+                    writer.Write(link.QuantizedX);
+                    writer.Write(link.QuantizedY);
+                    writer.Write(link.RemainingTicks);
+                }
+                writer.Write((ushort)snapshot.WorldObjects.Count);
+                foreach (var obj in snapshot.WorldObjects)
+                {
+                    writer.Write(obj.ObjectId);
+                    writer.Write(obj.ObjectDefId);
+                    writer.Write(obj.Archetype);
+                    writer.Write(obj.EncounterId);
+                    writer.Write(obj.QuantizedX);
+                    writer.Write(obj.QuantizedY);
+                    writer.Write(obj.Health);
+                    writer.Write(obj.MaxHealth);
+                    writer.Write(obj.ObjectiveState);
+                }
+                writer.Write((ushort)snapshot.Hazards.Count);
+                foreach (var hazard in snapshot.Hazards)
+                {
+                    writer.Write(hazard.HazardRuntimeId);
+                    writer.Write(hazard.HazardId);
+                    writer.Write(hazard.EncounterId);
+                    writer.Write(hazard.QuantizedX);
+                    writer.Write(hazard.QuantizedY);
+                    writer.Write(hazard.RemainingTicks);
+                    writer.Write(hazard.ObjectiveState);
+                }
+                writer.Write((ushort)snapshot.Npcs.Count);
+                foreach (var npc in snapshot.Npcs)
+                {
+                    writer.Write(npc.NpcRuntimeId);
+                    writer.Write(npc.NpcId);
+                    writer.Write(npc.ZoneId);
+                    writer.Write(npc.Name);
+                    writer.Write(npc.QuantizedX);
+                    writer.Write(npc.QuantizedY);
+                    writer.Write(npc.InteractRadiusDeciUnits);
+                    writer.Write(npc.ObjectiveState);
+                }
+                writer.Write((ushort)snapshot.Objectives.Count);
+                foreach (var objective in snapshot.Objectives)
+                {
+                    writer.Write(objective.ObjectiveId);
+                    writer.Write(objective.EncounterId);
+                    writer.Write(objective.Kind);
+                    writer.Write(objective.TargetId);
+                    writer.Write(objective.Current);
+                    writer.Write(objective.Required);
+                    writer.Write(objective.State);
                 }
                 break;
             default:
@@ -172,8 +241,8 @@ public static class ProtocolCodec
 
         for (var i = 0; i < count; i++)
         {
-            entities.Add(new EntitySnapshot
-            {
+                entities.Add(new EntitySnapshot
+                {
                 EntityId = reader.ReadUInt32(),
                 Kind = (EntityKind)reader.ReadByte(),
                 QuantizedX = reader.ReadInt16(),
@@ -199,11 +268,135 @@ public static class ProtocolCodec
                 DebugConsumedStatusStacks = reader.ReadByte(),
                 DebugLastCastSlotCode = reader.ReadByte(),
                 DebugLastCastResultCode = reader.ReadByte(),
-                DebugLastCastTargetTeamCode = reader.ReadByte(),
-                DebugLastCastAffectedCount = reader.ReadByte(),
-                DebugLastCastVfxCode = reader.ReadUInt16(),
-                DebugLastCastFeedbackTicks = reader.ReadByte()
-            });
+                    DebugLastCastTargetTeamCode = reader.ReadByte(),
+                    DebugLastCastAffectedCount = reader.ReadByte(),
+                    DebugLastCastVfxCode = reader.ReadUInt16(),
+                    DebugLastCastFeedbackTicks = reader.ReadByte(),
+                    ArchetypeId = reader.ReadString()
+                });
+        }
+
+        var zones = new List<WorldZoneSnapshot>();
+        var links = new List<WorldLinkSnapshot>();
+        var worldObjects = new List<WorldObjectSnapshot>();
+        var hazards = new List<WorldHazardSnapshot>();
+        var npcs = new List<WorldNpcSnapshot>();
+        var objectives = new List<WorldObjectiveSnapshot>();
+
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var zoneCount = reader.ReadUInt16();
+            zones = new List<WorldZoneSnapshot>(zoneCount);
+            for (var i = 0; i < zoneCount; i++)
+            {
+                zones.Add(new WorldZoneSnapshot
+                {
+                    ZoneRuntimeId = reader.ReadUInt32(),
+                    ZoneDefId = reader.ReadString(),
+                    QuantizedX = reader.ReadInt16(),
+                    QuantizedY = reader.ReadInt16(),
+                    RemainingTicks = reader.ReadUInt16(),
+                    RadiusDeciUnits = reader.ReadUInt16()
+                });
+            }
+        }
+
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var linkCount = reader.ReadUInt16();
+            links = new List<WorldLinkSnapshot>(linkCount);
+            for (var i = 0; i < linkCount; i++)
+            {
+                links.Add(new WorldLinkSnapshot
+                {
+                    LinkRuntimeId = reader.ReadUInt32(),
+                    LinkDefId = reader.ReadString(),
+                    OwnerEntityId = reader.ReadUInt32(),
+                    TargetEntityId = reader.ReadUInt32(),
+                    QuantizedX = reader.ReadInt16(),
+                    QuantizedY = reader.ReadInt16(),
+                    RemainingTicks = reader.ReadUInt16()
+                });
+            }
+        }
+
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var objectCount = reader.ReadUInt16();
+            worldObjects = new List<WorldObjectSnapshot>(objectCount);
+            for (var i = 0; i < objectCount; i++)
+            {
+                worldObjects.Add(new WorldObjectSnapshot
+                {
+                    ObjectId = reader.ReadUInt32(),
+                    ObjectDefId = reader.ReadString(),
+                    Archetype = reader.ReadString(),
+                    EncounterId = reader.ReadString(),
+                    QuantizedX = reader.ReadInt16(),
+                    QuantizedY = reader.ReadInt16(),
+                    Health = reader.ReadUInt16(),
+                    MaxHealth = reader.ReadUInt16(),
+                    ObjectiveState = reader.ReadByte()
+                });
+            }
+        }
+
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var hazardCount = reader.ReadUInt16();
+            hazards = new List<WorldHazardSnapshot>(hazardCount);
+            for (var i = 0; i < hazardCount; i++)
+            {
+                hazards.Add(new WorldHazardSnapshot
+                {
+                    HazardRuntimeId = reader.ReadUInt32(),
+                    HazardId = reader.ReadString(),
+                    EncounterId = reader.ReadString(),
+                    QuantizedX = reader.ReadInt16(),
+                    QuantizedY = reader.ReadInt16(),
+                    RemainingTicks = reader.ReadUInt16(),
+                    ObjectiveState = reader.ReadByte()
+                });
+            }
+        }
+
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var npcCount = reader.ReadUInt16();
+            npcs = new List<WorldNpcSnapshot>(npcCount);
+            for (var i = 0; i < npcCount; i++)
+            {
+                npcs.Add(new WorldNpcSnapshot
+                {
+                    NpcRuntimeId = reader.ReadUInt32(),
+                    NpcId = reader.ReadString(),
+                    ZoneId = reader.ReadString(),
+                    Name = reader.ReadString(),
+                    QuantizedX = reader.ReadInt16(),
+                    QuantizedY = reader.ReadInt16(),
+                    InteractRadiusDeciUnits = reader.ReadUInt16(),
+                    ObjectiveState = reader.ReadByte()
+                });
+            }
+        }
+
+        if (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var objectiveCount = reader.ReadUInt16();
+            objectives = new List<WorldObjectiveSnapshot>(objectiveCount);
+            for (var i = 0; i < objectiveCount; i++)
+            {
+                objectives.Add(new WorldObjectiveSnapshot
+                {
+                    ObjectiveId = reader.ReadString(),
+                    EncounterId = reader.ReadString(),
+                    Kind = reader.ReadString(),
+                    TargetId = reader.ReadString(),
+                    Current = reader.ReadUInt16(),
+                    Required = reader.ReadUInt16(),
+                    State = reader.ReadByte()
+                });
+            }
         }
 
         return new WorldSnapshot
@@ -212,7 +405,13 @@ public static class ProtocolCodec
             LastProcessedInputSequence = lastProcessedInputSequence,
             ZoneKind = zoneKind,
             InstanceId = instanceId,
-            Entities = entities
+            Entities = entities,
+            Zones = zones,
+            Links = links,
+            WorldObjects = worldObjects,
+            Hazards = hazards,
+            Npcs = npcs,
+            Objectives = objectives
         };
     }
 

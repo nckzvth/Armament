@@ -32,7 +32,8 @@ public enum InputActionFlags : uint
     Skill7 = 1 << 9,
     Skill8 = 1 << 10,
     Pickup = 1 << 11,
-    InteractPortal = 1 << 12
+    InteractPortal = 1 << 12,
+    Interact = 1 << 13
 }
 
 public enum EntityKind : byte
@@ -126,6 +127,12 @@ public sealed class WorldSnapshot : IProtocolMessage
     public ZoneKind ZoneKind { get; set; } = ZoneKind.Overworld;
     public uint InstanceId { get; set; }
     public List<EntitySnapshot> Entities { get; set; } = new();
+    public List<WorldZoneSnapshot> Zones { get; set; } = new();
+    public List<WorldLinkSnapshot> Links { get; set; } = new();
+    public List<WorldObjectSnapshot> WorldObjects { get; set; } = new();
+    public List<WorldHazardSnapshot> Hazards { get; set; } = new();
+    public List<WorldNpcSnapshot> Npcs { get; set; } = new();
+    public List<WorldObjectiveSnapshot> Objectives { get; set; } = new();
 }
 
 public sealed class EntitySnapshot
@@ -159,4 +166,73 @@ public sealed class EntitySnapshot
     public byte DebugLastCastAffectedCount { get; set; }
     public ushort DebugLastCastVfxCode { get; set; }
     public byte DebugLastCastFeedbackTicks { get; set; }
+    public string ArchetypeId { get; set; } = string.Empty;
+}
+
+public sealed class WorldZoneSnapshot
+{
+    public uint ZoneRuntimeId { get; set; }
+    public string ZoneDefId { get; set; } = string.Empty;
+    public short QuantizedX { get; set; }
+    public short QuantizedY { get; set; }
+    public ushort RemainingTicks { get; set; }
+    public ushort RadiusDeciUnits { get; set; }
+}
+
+public sealed class WorldLinkSnapshot
+{
+    public uint LinkRuntimeId { get; set; }
+    public string LinkDefId { get; set; } = string.Empty;
+    public uint OwnerEntityId { get; set; }
+    public uint TargetEntityId { get; set; }
+    public short QuantizedX { get; set; }
+    public short QuantizedY { get; set; }
+    public ushort RemainingTicks { get; set; }
+}
+
+public sealed class WorldObjectSnapshot
+{
+    public uint ObjectId { get; set; }
+    public string ObjectDefId { get; set; } = string.Empty;
+    public string Archetype { get; set; } = string.Empty;
+    public string EncounterId { get; set; } = string.Empty;
+    public short QuantizedX { get; set; }
+    public short QuantizedY { get; set; }
+    public ushort Health { get; set; }
+    public ushort MaxHealth { get; set; }
+    public byte ObjectiveState { get; set; }
+}
+
+public sealed class WorldHazardSnapshot
+{
+    public uint HazardRuntimeId { get; set; }
+    public string HazardId { get; set; } = string.Empty;
+    public string EncounterId { get; set; } = string.Empty;
+    public short QuantizedX { get; set; }
+    public short QuantizedY { get; set; }
+    public ushort RemainingTicks { get; set; }
+    public byte ObjectiveState { get; set; }
+}
+
+public sealed class WorldNpcSnapshot
+{
+    public uint NpcRuntimeId { get; set; }
+    public string NpcId { get; set; } = string.Empty;
+    public string ZoneId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public short QuantizedX { get; set; }
+    public short QuantizedY { get; set; }
+    public ushort InteractRadiusDeciUnits { get; set; }
+    public byte ObjectiveState { get; set; }
+}
+
+public sealed class WorldObjectiveSnapshot
+{
+    public string ObjectiveId { get; set; } = string.Empty;
+    public string EncounterId { get; set; } = string.Empty;
+    public string Kind { get; set; } = string.Empty;
+    public string TargetId { get; set; } = string.Empty;
+    public ushort Current { get; set; }
+    public ushort Required { get; set; }
+    public byte State { get; set; }
 }

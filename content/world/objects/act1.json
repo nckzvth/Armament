@@ -1,0 +1,8 @@
+[
+  { "id": "obj.corpse_pile", "maxHealth": 140, "interactMode": "attack_to_destroy", "flags": ["destructible", "spawner"] },
+  { "id": "obj.supply_crate", "maxHealth": 90, "interactMode": "interact_to_disable", "flags": ["interactable"] },
+  { "id": "obj.blight_heart", "maxHealth": 180, "interactMode": "attack_to_destroy", "flags": ["destructible"] },
+  { "id": "obj.bell_pylon", "maxHealth": 220, "interactMode": "attack_to_destroy", "flags": ["destructible"], "linkedHazardId": "haz.bell_pulse" },
+  { "id": "obj.relic_anchor", "maxHealth": 260, "interactMode": "attack_to_destroy", "flags": ["destructible"], "linkedHazardId": "haz.desecration_circle" },
+  { "id": "obj.stitch_node", "maxHealth": 240, "interactMode": "attack_to_destroy", "flags": ["destructible"] }
+]

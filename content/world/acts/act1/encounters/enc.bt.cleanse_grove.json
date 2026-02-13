@@ -1,0 +1,1 @@
+{ "id": "enc.bt.cleanse_grove", "zoneId": "zone.bt", "enemyIds": ["enemy.briar_wolf", "enemy.root_snare_husk", "enemy.mire_spitter"], "objectiveObjectIds": ["obj.blight_heart"], "hazardIds": ["haz.desecration_circle"] }

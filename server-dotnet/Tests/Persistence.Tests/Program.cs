@@ -95,6 +95,8 @@ await characters.UpsertProfileAsync(
     experience: 120,
     currency: 77,
     new CharacterAttributesRecord(12, 8, 10, 9),
+    "{}",
+    "{}",
     CancellationToken.None);
 await accounts.BindCharacterAsync(account.AccountId, secondCharacterId, slotIndex: 1, characterName: "AltCharacter", CancellationToken.None);
 

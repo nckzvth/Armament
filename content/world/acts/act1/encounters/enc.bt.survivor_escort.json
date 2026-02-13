@@ -1,0 +1,1 @@
+{ "id": "enc.bt.survivor_escort", "zoneId": "zone.bt", "enemyIds": ["enemy.briar_wolf", "enemy.torch_ruffian", "enemy.bolt_runner"], "objectiveObjectIds": [], "hazardIds": ["haz.grave_gas_vent"] }

@@ -90,6 +90,8 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
         long experience,
         int currency,
         CharacterAttributesRecord attributes,
+        string inventoryJson,
+        string questProgressJson,
         CancellationToken cancellationToken)
     {
         var entity = await dbContext.Characters.SingleOrDefaultAsync(x => x.CharacterId == characterId, cancellationToken);
@@ -122,9 +124,9 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
                 MaxSpenderResource = derived.MaxSpenderResource,
                 Currency = Math.Max(0, currency),
                 GearJson = "{}",
-                InventoryJson = "{}",
+                InventoryJson = string.IsNullOrWhiteSpace(inventoryJson) ? "{}" : inventoryJson,
                 LearnedRecipesJson = "[]",
-                QuestProgressJson = "{}",
+                QuestProgressJson = string.IsNullOrWhiteSpace(questProgressJson) ? "{}" : questProgressJson,
                 CreatedUtc = utcNow,
                 UpdatedUtc = utcNow
             });
@@ -144,6 +146,8 @@ public sealed class CharacterRepository(ArmamentDbContext dbContext) : ICharacte
             entity.MaxBuilderResource = derived.MaxBuilderResource;
             entity.MaxSpenderResource = derived.MaxSpenderResource;
             entity.Currency = Math.Max(0, currency);
+            entity.InventoryJson = string.IsNullOrWhiteSpace(inventoryJson) ? "{}" : inventoryJson;
+            entity.QuestProgressJson = string.IsNullOrWhiteSpace(questProgressJson) ? "{}" : questProgressJson;
             entity.UpdatedUtc = utcNow;
         }
 

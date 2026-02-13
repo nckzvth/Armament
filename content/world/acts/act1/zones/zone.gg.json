@@ -1,0 +1,7 @@
+{
+  "id": "zone.gg",
+  "key": "GG",
+  "name": "Graveyard Gate",
+  "encounterIds": ["enc.gg.volley_lanes", "enc.gg.spectral_captain"],
+  "mapFile": "maps/zone.gg.tiled.json"
+}

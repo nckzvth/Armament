@@ -1,0 +1,7 @@
+{
+  "id": "zone.cp",
+  "key": "CP",
+  "name": "Camp Perimeter",
+  "encounterIds": ["enc.cp.perimeter_breach", "enc.cp.stolen_supplies", "enc.cp.seal_disturbed_plots"],
+  "mapFile": "maps/zone.cp.tiled.json"
+}

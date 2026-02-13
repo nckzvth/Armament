@@ -1,0 +1,103 @@
+{
+  "compressionlevel": -1,
+  "height": 64,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Campaign",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "id": 100,
+          "name": "Cleanse Grove Anchor",
+          "type": "encounter_anchor",
+          "x": 120,
+          "y": 126,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.bt.cleanse_grove" }
+          ]
+        },
+        {
+          "id": 101,
+          "name": "Blight Heart",
+          "type": "campaign_object",
+          "x": 120,
+          "y": 112,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.bt.cleanse_grove" },
+            { "name": "objectDefId", "type": "string", "value": "obj.blight_heart" }
+          ]
+        },
+        {
+          "id": 102,
+          "name": "Desecration Circle",
+          "type": "campaign_hazard",
+          "x": 142,
+          "y": 112,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.bt.cleanse_grove" },
+            { "name": "hazardId", "type": "string", "value": "haz.desecration_circle" }
+          ]
+        },
+        {
+          "id": 110,
+          "name": "Survivor Escort Anchor",
+          "type": "encounter_anchor",
+          "x": 222,
+          "y": 126,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.bt.survivor_escort" }
+          ]
+        },
+        {
+          "id": 111,
+          "name": "Escort Gas Vent",
+          "type": "campaign_hazard",
+          "x": 222,
+          "y": 112,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.bt.survivor_escort" },
+            { "name": "hazardId", "type": "string", "value": "haz.grave_gas_vent" }
+          ]
+        },
+        {
+          "id": 120,
+          "name": "Thief Stash Anchor",
+          "type": "encounter_anchor",
+          "x": 316,
+          "y": 126,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.bt.thief_stash" }
+          ]
+        },
+        {
+          "id": 121,
+          "name": "Thief Supply Crate",
+          "type": "campaign_object",
+          "x": 316,
+          "y": 112,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.bt.thief_stash" },
+            { "name": "objectDefId", "type": "string", "value": "obj.supply_crate" }
+          ]
+        }
+      ]
+    }
+  ],
+  "nextlayerid": 2,
+  "nextobjectid": 122,
+  "orientation": "orthogonal",
+  "properties": [
+    { "name": "worldMilliPerPixel", "type": "float", "value": 100.0 },
+    { "name": "invertY", "type": "bool", "value": true }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.11.0",
+  "tileheight": 32,
+  "tilesets": [],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 64
+}

@@ -1,0 +1,1 @@
+{ "id": "enc.bt.thief_stash", "zoneId": "zone.bt", "enemyIds": ["enemy.tomb_picker", "enemy.torch_ruffian", "enemy.coffin_hauler"], "objectiveObjectIds": ["obj.supply_crate"], "hazardIds": [] }

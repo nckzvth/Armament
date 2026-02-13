@@ -1,0 +1,1 @@
+{ "id": "enc.cc2.stitch_nodes", "zoneId": "zone.cc2", "enemyIds": ["enemy.marrow_stitcher", "enemy.unclean_lieutenant"], "objectiveObjectIds": ["obj.stitch_node"], "hazardIds": [] }

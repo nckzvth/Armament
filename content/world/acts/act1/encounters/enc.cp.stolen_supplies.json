@@ -1,0 +1,11 @@
+{
+  "id": "enc.cp.stolen_supplies",
+  "zoneId": "zone.cp",
+  "enemyIds": ["enemy.tomb_picker", "enemy.bolt_runner"],
+  "objectiveObjectIds": ["obj.supply_crate"],
+  "hazardIds": [],
+  "completionEventKind": "TokenCollected",
+  "completionCount": 3,
+  "rewardItemCode": "item.quest.supply_cache",
+  "rewardItemQuantity": 1
+}

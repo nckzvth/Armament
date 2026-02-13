@@ -1,0 +1,1 @@
+{ "id": "quest.act1.through_bloody_thicket", "title": "Through The Bloody Thicket", "prerequisiteQuestIds": ["quest.act1.perimeter_breach"], "objectives": [{ "type": "CompleteEncounter", "targetId": "enc.bt.cleanse_grove", "count": 1 }, { "type": "CompleteEncounter", "targetId": "enc.bt.survivor_escort", "count": 1 }] }

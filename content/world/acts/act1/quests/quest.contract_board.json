@@ -1,0 +1,1 @@
+{ "id": "quest.act1.contract_board", "title": "The Contract Board", "prerequisiteQuestIds": [], "objectives": [{ "type": "TalkToNpc", "targetId": "npc.quartermaster", "count": 1 }] }

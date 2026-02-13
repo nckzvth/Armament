@@ -1,0 +1,125 @@
+{
+  "compressionlevel": -1,
+  "height": 64,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Campaign",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "id": 300,
+          "name": "Disable Bell Pylons Anchor",
+          "type": "encounter_anchor",
+          "x": 128,
+          "y": 116,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.disable_bell_pylons" }
+          ]
+        },
+        {
+          "id": 301,
+          "name": "Bell Pylon A",
+          "type": "campaign_object",
+          "x": 114,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.disable_bell_pylons" },
+            { "name": "objectDefId", "type": "string", "value": "obj.bell_pylon" }
+          ]
+        },
+        {
+          "id": 302,
+          "name": "Bell Pylon B",
+          "type": "campaign_object",
+          "x": 142,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.disable_bell_pylons" },
+            { "name": "objectDefId", "type": "string", "value": "obj.bell_pylon" }
+          ]
+        },
+        {
+          "id": 303,
+          "name": "Bell Pulse",
+          "type": "campaign_hazard",
+          "x": 128,
+          "y": 88,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.disable_bell_pylons" },
+            { "name": "hazardId", "type": "string", "value": "haz.bell_pulse" }
+          ]
+        },
+        {
+          "id": 310,
+          "name": "Break Relic Anchors Anchor",
+          "type": "encounter_anchor",
+          "x": 250,
+          "y": 116,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.break_relic_anchors" }
+          ]
+        },
+        {
+          "id": 311,
+          "name": "Relic Anchor A",
+          "type": "campaign_object",
+          "x": 236,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.break_relic_anchors" },
+            { "name": "objectDefId", "type": "string", "value": "obj.relic_anchor" }
+          ]
+        },
+        {
+          "id": 312,
+          "name": "Relic Anchor B",
+          "type": "campaign_object",
+          "x": 264,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.break_relic_anchors" },
+            { "name": "objectDefId", "type": "string", "value": "obj.relic_anchor" }
+          ]
+        },
+        {
+          "id": 313,
+          "name": "Anchor Desecration",
+          "type": "campaign_hazard",
+          "x": 250,
+          "y": 86,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.break_relic_anchors" },
+            { "name": "hazardId", "type": "string", "value": "haz.desecration_circle" }
+          ]
+        },
+        {
+          "id": 320,
+          "name": "Reliquary Shade Anchor",
+          "type": "encounter_anchor",
+          "x": 338,
+          "y": 116,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ig.reliquary_shade" }
+          ]
+        }
+      ]
+    }
+  ],
+  "nextlayerid": 2,
+  "nextobjectid": 321,
+  "orientation": "orthogonal",
+  "properties": [
+    { "name": "worldMilliPerPixel", "type": "float", "value": 100.0 },
+    { "name": "invertY", "type": "bool", "value": true }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.11.0",
+  "tileheight": 32,
+  "tilesets": [],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 64
+}

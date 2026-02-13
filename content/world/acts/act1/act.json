@@ -1,0 +1,15 @@
+{
+  "id": "act.1",
+  "name": "Act 1: Graves And Ash",
+  "startZoneId": "zone.cp",
+  "zoneIds": ["zone.cp", "zone.bt", "zone.gg", "zone.ig", "zone.ma", "zone.cc1", "zone.cc2", "zone.cc3"],
+  "mainQuestIds": [
+    "quest.act1.contract_board",
+    "quest.act1.perimeter_breach",
+    "quest.act1.through_bloody_thicket",
+    "quest.act1.break_graveyard_gate",
+    "quest.act1.silence_inner_graveyard",
+    "quest.act1.breach_mausoleum",
+    "quest.act1.corrupted_cathedral"
+  ]
+}

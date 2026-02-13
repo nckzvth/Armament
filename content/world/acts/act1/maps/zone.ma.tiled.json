@@ -1,0 +1,71 @@
+{
+  "compressionlevel": -1,
+  "height": 64,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Campaign",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "id": 400,
+          "name": "Gas Corridor Anchor",
+          "type": "encounter_anchor",
+          "x": 156,
+          "y": 120,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ma.grave_gas_corridor" }
+          ]
+        },
+        {
+          "id": 401,
+          "name": "Corridor Vent",
+          "type": "campaign_hazard",
+          "x": 156,
+          "y": 108,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ma.grave_gas_corridor" },
+            { "name": "hazardId", "type": "string", "value": "haz.grave_gas_vent" }
+          ]
+        },
+        {
+          "id": 410,
+          "name": "Ossuary Warden Anchor",
+          "type": "encounter_anchor",
+          "x": 286,
+          "y": 120,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ma.ossuary_warden" }
+          ]
+        },
+        {
+          "id": 411,
+          "name": "Warden Vent",
+          "type": "campaign_hazard",
+          "x": 286,
+          "y": 106,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.ma.ossuary_warden" },
+            { "name": "hazardId", "type": "string", "value": "haz.grave_gas_vent" }
+          ]
+        }
+      ]
+    }
+  ],
+  "nextlayerid": 2,
+  "nextobjectid": 412,
+  "orientation": "orthogonal",
+  "properties": [
+    { "name": "worldMilliPerPixel", "type": "float", "value": 100.0 },
+    { "name": "invertY", "type": "bool", "value": true }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.11.0",
+  "tileheight": 32,
+  "tilesets": [],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 64
+}

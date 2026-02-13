@@ -1,0 +1,49 @@
+{
+  "compressionlevel": -1,
+  "height": 64,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Campaign",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "id": 200,
+          "name": "Volley Lanes Anchor",
+          "type": "encounter_anchor",
+          "x": 148,
+          "y": 120,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.gg.volley_lanes" }
+          ]
+        },
+        {
+          "id": 210,
+          "name": "Spectral Captain Anchor",
+          "type": "encounter_anchor",
+          "x": 276,
+          "y": 120,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.gg.spectral_captain" }
+          ]
+        }
+      ]
+    }
+  ],
+  "nextlayerid": 2,
+  "nextobjectid": 211,
+  "orientation": "orthogonal",
+  "properties": [
+    { "name": "worldMilliPerPixel", "type": "float", "value": 100.0 },
+    { "name": "invertY", "type": "bool", "value": true }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.11.0",
+  "tileheight": 32,
+  "tilesets": [],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 64
+}

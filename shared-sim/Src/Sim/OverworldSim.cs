@@ -93,12 +93,44 @@ public sealed class SimLootDrop
     public bool Claimed { get; set; }
 }
 
+public enum SimEventKind : byte
+{
+    EnemyKilled = 1,
+    ObjectDestroyed = 2,
+    ObjectiveCompleted = 3,
+    TokenCollected = 4,
+    PlayerEnteredRegion = 5,
+    NpcInteracted = 6
+}
+
+public struct SimEventRecord
+{
+    public SimEventKind Kind { get; set; }
+    public uint Tick { get; set; }
+    public uint PlayerEntityId { get; set; }
+    public uint SubjectEntityId { get; set; }
+    public uint SubjectObjectId { get; set; }
+    public int Value { get; set; }
+}
+
 public struct SimLootGrantEvent
 {
     public uint PlayerEntityId { get; set; }
     public uint LootId { get; set; }
     public int CurrencyAmount { get; set; }
     public bool AutoLoot { get; set; }
+}
+
+public sealed class SimWorldObjectState
+{
+    public uint ObjectId { get; set; }
+    public string ObjectDefId { get; set; } = string.Empty;
+    public int PositionXMilli { get; set; }
+    public int PositionYMilli { get; set; }
+    public int Health { get; set; }
+    public int MaxHealth { get; set; }
+    public uint Flags { get; set; }
+    public uint LinkedId { get; set; }
 }
 
 public sealed class OverworldSimState
@@ -108,10 +140,15 @@ public sealed class OverworldSimState
     private readonly Dictionary<uint, SimLootDrop> _lootDrops = new();
     private readonly Dictionary<uint, SimZoneState> _zones = new();
     private readonly Dictionary<uint, SimLinkState> _links = new();
+    private readonly Dictionary<uint, SimWorldObjectState> _worldObjects = new();
+    private readonly Dictionary<string, SimZoneDefinition> _zoneDefinitions = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, SimLinkDefinition> _linkDefinitions = new(StringComparer.Ordinal);
     private readonly List<SimLootGrantEvent> _lootGrantEvents = new();
+    private readonly List<SimEventRecord> _simEvents = new();
     private uint _nextLootId = 1_000_000;
     private uint _nextZoneId = 1;
     private uint _nextLinkId = 1;
+    private uint _nextObjectId = 2_000_000;
 
     public uint Tick { get; set; }
     public uint Seed { get; set; } = 1;
@@ -130,11 +167,24 @@ public sealed class OverworldSimState
     public IReadOnlyDictionary<uint, SimLootDrop> LootDrops => _lootDrops;
     public IReadOnlyDictionary<uint, SimZoneState> Zones => _zones;
     public IReadOnlyDictionary<uint, SimLinkState> Links => _links;
+    public IReadOnlyDictionary<uint, SimWorldObjectState> WorldObjects => _worldObjects;
+    public IReadOnlyDictionary<string, SimZoneDefinition> ZoneDefinitions => _zoneDefinitions;
+    public IReadOnlyDictionary<string, SimLinkDefinition> LinkDefinitions => _linkDefinitions;
     public IReadOnlyList<SimLootGrantEvent> LootGrantEvents => _lootGrantEvents;
+    public IReadOnlyList<SimEventRecord> SimEvents => _simEvents;
 
     public OverworldSimState()
     {
         RegisterAbilityProfile(SimAbilityProfiles.BuiltinV1);
+        foreach (var zone in SimZoneLinkDefaults.Zones)
+        {
+            RegisterZoneDefinition(zone);
+        }
+
+        foreach (var link in SimZoneLinkDefaults.Links)
+        {
+            RegisterLinkDefinition(link);
+        }
     }
 
     public void UpsertEntity(SimEntityState entity)
@@ -233,6 +283,7 @@ public sealed class OverworldSimState
     public void ClearStepEvents()
     {
         _lootGrantEvents.Clear();
+        _simEvents.Clear();
     }
 
     public void RecordLootGrant(uint playerEntityId, uint lootId, int currencyAmount, bool autoLoot)
@@ -244,6 +295,11 @@ public sealed class OverworldSimState
             CurrencyAmount = currencyAmount,
             AutoLoot = autoLoot
         });
+    }
+
+    public void RecordSimEvent(SimEventRecord simEvent)
+    {
+        _simEvents.Add(simEvent);
     }
 
     public bool RemoveZone(uint zoneId)
@@ -281,15 +337,80 @@ public sealed class OverworldSimState
         return _links.Remove(linkId);
     }
 
+    public SimWorldObjectState SpawnWorldObject(
+        string objectDefId,
+        int xMilli,
+        int yMilli,
+        int maxHealth,
+        uint flags,
+        uint linkedId = 0)
+    {
+        var obj = new SimWorldObjectState
+        {
+            ObjectId = _nextObjectId++,
+            ObjectDefId = objectDefId,
+            PositionXMilli = xMilli,
+            PositionYMilli = yMilli,
+            MaxHealth = Math.Max(1, maxHealth),
+            Health = Math.Max(1, maxHealth),
+            Flags = flags,
+            LinkedId = linkedId
+        };
+
+        _worldObjects[obj.ObjectId] = obj;
+        return obj;
+    }
+
+    public bool TryGetWorldObject(uint objectId, out SimWorldObjectState obj)
+    {
+        return _worldObjects.TryGetValue(objectId, out obj!);
+    }
+
+    public bool RemoveWorldObject(uint objectId)
+    {
+        return _worldObjects.Remove(objectId);
+    }
+
+    public void RegisterZoneDefinition(SimZoneDefinition definition)
+    {
+        if (definition is null || string.IsNullOrWhiteSpace(definition.Id))
+        {
+            return;
+        }
+
+        _zoneDefinitions[definition.Id] = definition;
+    }
+
+    public void RegisterLinkDefinition(SimLinkDefinition definition)
+    {
+        if (definition is null || string.IsNullOrWhiteSpace(definition.Id))
+        {
+            return;
+        }
+
+        _linkDefinitions[definition.Id] = definition;
+    }
+
+    public bool TryResolveZoneDefinition(string zoneDefId, out SimZoneDefinition definition)
+    {
+        return _zoneDefinitions.TryGetValue(zoneDefId, out definition!);
+    }
+
+    public bool TryResolveLinkDefinition(string linkDefId, out SimLinkDefinition definition)
+    {
+        return _linkDefinitions.TryGetValue(linkDefId, out definition!);
+    }
+
     public uint ComputeWorldHash()
     {
-        var values = new List<uint>(_entities.Count * 12 + _lootDrops.Count * 5 + _zones.Count * 11 + _links.Count * 9 + 5)
+        var values = new List<uint>(_entities.Count * 12 + _lootDrops.Count * 5 + _zones.Count * 11 + _links.Count * 9 + _worldObjects.Count * 8 + 6)
         {
             Tick,
             (uint)_entities.Count,
             (uint)_lootDrops.Count,
             (uint)_zones.Count,
             (uint)_links.Count,
+            (uint)_worldObjects.Count,
             Seed
         };
 
@@ -408,6 +529,26 @@ public sealed class OverworldSimState
             values.Add(unchecked((uint)link.MaxDistanceMilli));
             values.Add(unchecked((uint)link.PullMilliPerTick));
             values.Add(unchecked((uint)link.DamagePerTick));
+        }
+
+        var objectIds = new List<uint>(_worldObjects.Keys);
+        objectIds.Sort();
+        foreach (var objectId in objectIds)
+        {
+            var obj = _worldObjects[objectId];
+            values.Add(obj.ObjectId);
+            values.Add((uint)obj.ObjectDefId.Length);
+            for (var i = 0; i < obj.ObjectDefId.Length; i++)
+            {
+                values.Add(obj.ObjectDefId[i]);
+            }
+
+            values.Add(unchecked((uint)obj.PositionXMilli));
+            values.Add(unchecked((uint)obj.PositionYMilli));
+            values.Add(unchecked((uint)obj.Health));
+            values.Add(unchecked((uint)obj.MaxHealth));
+            values.Add(obj.Flags);
+            values.Add(obj.LinkedId);
         }
 
         return WorldHash.Fnv1A32(values);
@@ -720,6 +861,18 @@ public static class OverworldSimulator
         {
             target.IsAlive = false;
             state.SpawnLoot(target.PositionXMilli, target.PositionYMilli, 5);
+            if (target.Kind == EntityKind.Enemy)
+            {
+                state.RecordSimEvent(new SimEventRecord
+                {
+                    Kind = SimEventKind.EnemyKilled,
+                    Tick = state.Tick,
+                    PlayerEntityId = attacker?.Kind == EntityKind.Player ? attacker.EntityId : 0,
+                    SubjectEntityId = target.EntityId,
+                    SubjectObjectId = 0,
+                    Value = 1
+                });
+            }
         }
     }
 
@@ -810,7 +963,7 @@ public static class OverworldSimulator
             return false;
         }
 
-        if (!TryResolveZoneTemplate(zoneDefId, out var template))
+        if (!state.TryResolveZoneDefinition(zoneDefId, out var definition))
         {
             return false;
         }
@@ -820,13 +973,13 @@ public static class OverworldSimulator
             owner.EntityId,
             xMilli,
             yMilli,
-            template.DurationTicks,
-            template.TickIntervalTicks,
-            template.RadiusMilli,
-            template.DamagePerPulse,
-            template.HealPerPulse,
-            template.StatusId,
-            template.StatusDurationTicks);
+            definition.DurationTicks,
+            definition.TickIntervalTicks,
+            definition.RadiusMilli,
+            definition.DamagePerPulse,
+            definition.HealPerPulse,
+            definition.StatusId,
+            definition.StatusDurationTicks);
         return true;
     }
 
@@ -837,7 +990,7 @@ public static class OverworldSimulator
             return false;
         }
 
-        if (!TryResolveLinkTemplate(linkDefId, out var template))
+        if (!state.TryResolveLinkDefinition(linkDefId, out var definition))
         {
             return false;
         }
@@ -848,7 +1001,7 @@ public static class OverworldSimulator
                 existing.TargetEntityId == target.EntityId &&
                 string.Equals(existing.LinkDefId, linkDefId, StringComparison.Ordinal))
             {
-                existing.RemainingTicks = Math.Max(existing.RemainingTicks, template.DurationTicks);
+                existing.RemainingTicks = Math.Max(existing.RemainingTicks, definition.DurationTicks);
                 return true;
             }
         }
@@ -862,7 +1015,7 @@ public static class OverworldSimulator
             }
         }
 
-        if (ownedLinks.Count >= template.MaxActiveLinks)
+        if (ownedLinks.Count >= definition.MaxActiveLinks)
         {
             ownedLinks.Sort((a, b) => a.LinkId.CompareTo(b.LinkId));
             state.RemoveLink(ownedLinks[0].LinkId);
@@ -872,10 +1025,10 @@ public static class OverworldSimulator
             linkDefId,
             owner.EntityId,
             target.EntityId,
-            template.DurationTicks,
-            template.MaxDistanceMilli,
-            template.PullMilliPerTick,
-            template.DamagePerTick);
+            definition.DurationTicks,
+            definition.MaxDistanceMilli,
+            definition.PullMilliPerTick,
+            definition.DamagePerTick);
         return true;
     }
 
@@ -1050,169 +1203,6 @@ public static class OverworldSimulator
         }
     }
 
-    private static bool TryResolveZoneTemplate(string zoneDefId, out ZoneTemplate template)
-    {
-        template = zoneDefId switch
-        {
-            "zone.exorcist.warden.abjuration_field" => new ZoneTemplate(
-                radiusMilli: 1900,
-                durationTicks: 300,
-                tickIntervalTicks: 18,
-                damagePerPulse: 4,
-                healPerPulse: 0,
-                statusId: "status.exorcist.warden.bound",
-                statusDurationTicks: 180),
-            "zone.bastion.bulwark.fissure" => new ZoneTemplate(
-                radiusMilli: 1600,
-                durationTicks: 260,
-                tickIntervalTicks: 20,
-                damagePerPulse: 3,
-                healPerPulse: 0,
-                statusId: null,
-                statusDurationTicks: 1),
-            "zone.bastion.cataclysm.fissure" => new ZoneTemplate(
-                radiusMilli: 1700,
-                durationTicks: 260,
-                tickIntervalTicks: 18,
-                damagePerPulse: 4,
-                healPerPulse: 0,
-                statusId: "status.bastion.cataclysm.scorched",
-                statusDurationTicks: 180),
-            "zone.bastion.bulwark.caldera" => new ZoneTemplate(
-                radiusMilli: 2200,
-                durationTicks: 320,
-                tickIntervalTicks: 14,
-                damagePerPulse: 6,
-                healPerPulse: 0,
-                statusId: null,
-                statusDurationTicks: 1),
-            "zone.bastion.cataclysm.caldera" => new ZoneTemplate(
-                radiusMilli: 2300,
-                durationTicks: 320,
-                tickIntervalTicks: 12,
-                damagePerPulse: 7,
-                healPerPulse: 0,
-                statusId: "status.bastion.cataclysm.scorched",
-                statusDurationTicks: 180),
-            "zone.tidebinder.tidecaller.soothing_pool" => new ZoneTemplate(
-                radiusMilli: 2100,
-                durationTicks: 320,
-                tickIntervalTicks: 16,
-                damagePerPulse: 0,
-                healPerPulse: 3,
-                statusId: "status.tidebinder.tidecaller.soaked",
-                statusDurationTicks: 180),
-            "zone.tidebinder.tidecaller.maelstrom" => new ZoneTemplate(
-                radiusMilli: 2400,
-                durationTicks: 360,
-                tickIntervalTicks: 12,
-                damagePerPulse: 2,
-                healPerPulse: 2,
-                statusId: "status.tidebinder.tidecaller.soaked",
-                statusDurationTicks: 180),
-            "zone.tidebinder.tempest.vortex_pool" => new ZoneTemplate(
-                radiusMilli: 2100,
-                durationTicks: 320,
-                tickIntervalTicks: 16,
-                damagePerPulse: 4,
-                healPerPulse: 0,
-                statusId: "status.tidebinder.tempest.soaked",
-                statusDurationTicks: 180),
-            "zone.tidebinder.tempest.maelstrom" => new ZoneTemplate(
-                radiusMilli: 2400,
-                durationTicks: 360,
-                tickIntervalTicks: 12,
-                damagePerPulse: 5,
-                healPerPulse: 0,
-                statusId: "status.tidebinder.tempest.soaked",
-                statusDurationTicks: 180),
-            "zone.arbiter.aegis.seal" => new ZoneTemplate(
-                radiusMilli: 2100,
-                durationTicks: 340,
-                tickIntervalTicks: 16,
-                damagePerPulse: 0,
-                healPerPulse: 3,
-                statusId: null,
-                statusDurationTicks: 1),
-            "zone.arbiter.aegis.ward" => new ZoneTemplate(
-                radiusMilli: 2200,
-                durationTicks: 300,
-                tickIntervalTicks: 14,
-                damagePerPulse: 0,
-                healPerPulse: 2,
-                statusId: null,
-                statusDurationTicks: 1),
-            "zone.arbiter.aegis.decree" => new ZoneTemplate(
-                radiusMilli: 2400,
-                durationTicks: 360,
-                tickIntervalTicks: 12,
-                damagePerPulse: 1,
-                healPerPulse: 4,
-                statusId: null,
-                statusDurationTicks: 1),
-            "zone.arbiter.edict.seal" => new ZoneTemplate(
-                radiusMilli: 2100,
-                durationTicks: 320,
-                tickIntervalTicks: 16,
-                damagePerPulse: 3,
-                healPerPulse: 0,
-                statusId: "status.arbiter.edict.decreed",
-                statusDurationTicks: 180),
-            "zone.arbiter.edict.lattice" => new ZoneTemplate(
-                radiusMilli: 2200,
-                durationTicks: 300,
-                tickIntervalTicks: 14,
-                damagePerPulse: 2,
-                healPerPulse: 0,
-                statusId: "status.arbiter.edict.decreed",
-                statusDurationTicks: 180),
-            "zone.arbiter.edict.decree" => new ZoneTemplate(
-                radiusMilli: 2400,
-                durationTicks: 360,
-                tickIntervalTicks: 12,
-                damagePerPulse: 5,
-                healPerPulse: 0,
-                statusId: "status.arbiter.edict.decreed",
-                statusDurationTicks: 180),
-            _ => default
-        };
-
-        return template.RadiusMilli > 0;
-    }
-
-    private static bool TryResolveLinkTemplate(string linkDefId, out LinkTemplate template)
-    {
-        template = linkDefId switch
-        {
-            "link.dreadweaver.menace.chain_snare" => new LinkTemplate(
-                durationTicks: 300,
-                maxDistanceMilli: 6000,
-                pullMilliPerTick: 80,
-                damagePerTick: 2,
-                maxActiveLinks: 2),
-            "link.dreadweaver.deceiver.chain_snare" => new LinkTemplate(
-                durationTicks: 260,
-                maxDistanceMilli: 6200,
-                pullMilliPerTick: 60,
-                damagePerTick: 3,
-                maxActiveLinks: 1),
-            "link.arbiter.aegis.constellation_link" => new LinkTemplate(
-                durationTicks: 300,
-                maxDistanceMilli: 7000,
-                pullMilliPerTick: 0,
-                damagePerTick: 0,
-                maxActiveLinks: 2),
-            "link.arbiter.edict.constellation_link" => new LinkTemplate(
-                durationTicks: 280,
-                maxDistanceMilli: 7000,
-                pullMilliPerTick: 0,
-                damagePerTick: 2,
-                maxActiveLinks: 3),
-            _ => default
-        };
-
-        return template.DurationTicks > 0;
-    }
 
     private static void TryPickupLoot(OverworldSimState state, SimEntityState player, OverworldSimRules rules)
     {
@@ -1238,6 +1228,15 @@ public static class OverworldSimulator
             loot.Claimed = true;
             player.Character.Currency += loot.CurrencyAmount;
             state.RecordLootGrant(player.EntityId, loot.LootId, loot.CurrencyAmount, autoLoot: false);
+            state.RecordSimEvent(new SimEventRecord
+            {
+                Kind = SimEventKind.TokenCollected,
+                Tick = state.Tick,
+                PlayerEntityId = player.EntityId,
+                SubjectEntityId = 0,
+                SubjectObjectId = loot.LootId,
+                Value = loot.CurrencyAmount
+            });
             break;
         }
     }
@@ -1266,6 +1265,15 @@ public static class OverworldSimulator
             loot.Claimed = true;
             player.Character.Currency += loot.CurrencyAmount;
             state.RecordLootGrant(player.EntityId, loot.LootId, loot.CurrencyAmount, autoLoot: true);
+            state.RecordSimEvent(new SimEventRecord
+            {
+                Kind = SimEventKind.TokenCollected,
+                Tick = state.Tick,
+                PlayerEntityId = player.EntityId,
+                SubjectEntityId = 0,
+                SubjectObjectId = loot.LootId,
+                Value = loot.CurrencyAmount
+            });
         }
     }
 
@@ -1472,55 +1480,4 @@ public static class OverworldSimulator
         return Math.Max(minimumTicks, scaled);
     }
 
-    private readonly struct ZoneTemplate
-    {
-        public ZoneTemplate(
-            int radiusMilli,
-            int durationTicks,
-            int tickIntervalTicks,
-            int damagePerPulse,
-            int healPerPulse,
-            string? statusId,
-            int statusDurationTicks)
-        {
-            RadiusMilli = radiusMilli;
-            DurationTicks = durationTicks;
-            TickIntervalTicks = tickIntervalTicks;
-            DamagePerPulse = damagePerPulse;
-            HealPerPulse = healPerPulse;
-            StatusId = statusId;
-            StatusDurationTicks = statusDurationTicks;
-        }
-
-        public int RadiusMilli { get; }
-        public int DurationTicks { get; }
-        public int TickIntervalTicks { get; }
-        public int DamagePerPulse { get; }
-        public int HealPerPulse { get; }
-        public string? StatusId { get; }
-        public int StatusDurationTicks { get; }
-    }
-
-    private readonly struct LinkTemplate
-    {
-        public LinkTemplate(
-            int durationTicks,
-            int maxDistanceMilli,
-            int pullMilliPerTick,
-            int damagePerTick,
-            int maxActiveLinks)
-        {
-            DurationTicks = durationTicks;
-            MaxDistanceMilli = maxDistanceMilli;
-            PullMilliPerTick = pullMilliPerTick;
-            DamagePerTick = damagePerTick;
-            MaxActiveLinks = maxActiveLinks;
-        }
-
-        public int DurationTicks { get; }
-        public int MaxDistanceMilli { get; }
-        public int PullMilliPerTick { get; }
-        public int DamagePerTick { get; }
-        public int MaxActiveLinks { get; }
-    }
 }

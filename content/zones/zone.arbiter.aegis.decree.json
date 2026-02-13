@@ -1,1 +1,9 @@
-{ "id": "zone.arbiter.aegis.decree" }
+{
+  "id": "zone.arbiter.aegis.decree",
+  "radius_milli": 2400,
+  "duration_ms": 6000,
+  "tick_interval_ms": 200,
+  "damage_per_pulse": 1,
+  "heal_per_pulse": 4,
+  "status_duration_ms": 17
+}

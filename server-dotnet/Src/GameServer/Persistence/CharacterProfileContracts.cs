@@ -23,7 +23,9 @@ public sealed record CharacterProfileData(
     int Currency,
     CharacterAttributes Attributes,
     string BaseClassId,
-    string SpecId);
+    string SpecId,
+    string InventoryJson,
+    string QuestProgressJson = "{}");
 
 public sealed record CharacterProfileLoadResult(
     string EndpointKey,

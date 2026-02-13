@@ -26,6 +26,7 @@ dotnet format client-mg/Armament.Client.MonoGame.sln --verify-no-changes
 
 dotnet run --project shared-sim/Tests/SharedSim.Tests/Armament.SharedSim.Tests.csproj
 dotnet run --project shared-sim/Tests/ContentValidation.Tests/Armament.ContentValidation.Tests.csproj
+dotnet run --project shared-sim/Tests/WorldContentValidation.Tests/Armament.WorldContentValidation.Tests.csproj
 mkdir -p "$ROOT_DIR/.artifacts"
 dotnet run --project ops/tools/AtlasValidator -- --input-dir "$ROOT_DIR/content/animations" --fail-on-error --report-out "$ROOT_DIR/.artifacts/atlas-validation-report.txt" --catalog-out "$ROOT_DIR/.artifacts/atlas-catalog.json"
 

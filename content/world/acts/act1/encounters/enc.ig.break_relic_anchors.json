@@ -1,0 +1,1 @@
+{ "id": "enc.ig.break_relic_anchors", "zoneId": "zone.ig", "enemyIds": ["enemy.ossuary_sentinel", "enemy.censer_acolyte"], "objectiveObjectIds": ["obj.relic_anchor"], "hazardIds": ["haz.desecration_circle"] }

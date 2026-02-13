@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Armament.Client.MonoGame.Animation;
+using Armament.SharedSim.Inventory;
 using Armament.SharedSim.Protocol;
 using Armament.SharedSim.Sim;
 using Microsoft.Xna.Framework;
@@ -13,7 +14,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Armament.Client.MonoGame;
 
-public sealed class ArmamentGame : Game
+public sealed partial class ArmamentGame : Game
 {
     private const int SimulationHz = 60;
     private const int InputScale = 1000;
@@ -23,6 +24,8 @@ public sealed class ArmamentGame : Game
     private const int MaxSlots = 6;
     private const uint PortalEntityId = 900_001;
     private const float DefaultWorldZoom = 108f;
+    private const int InventoryCellSize = 34;
+    private const int InventoryCellSpacing = 4;
 
     private enum UiScreen
     {
@@ -49,14 +52,18 @@ public sealed class ArmamentGame : Game
     private readonly Dictionary<uint, ushort> latestEntityHealth = new();
     private readonly Dictionary<uint, ushort> latestEntityBuilderResource = new();
     private readonly Dictionary<uint, ushort> latestEntitySpenderResource = new();
-    private readonly Dictionary<uint, uint> latestLinkOwnerByEntity = new();
-    private readonly Dictionary<uint, uint> latestLinkTargetByEntity = new();
-    private readonly Dictionary<uint, ushort> latestLinkRemainingTicks = new();
+    private readonly Dictionary<uint, string> latestEnemyArchetypeByEntity = new();
     private readonly Dictionary<uint, uint> latestEnemyAggroTarget = new();
     private readonly Dictionary<uint, ushort> latestEnemyAggroThreat = new();
     private readonly Dictionary<uint, byte> latestEnemyForcedTicks = new();
     private readonly Dictionary<uint, byte> latestEnemyPrimaryStatusStacks = new();
     private readonly Dictionary<uint, ushort> lootCurrencyById = new();
+    private readonly Dictionary<uint, WorldZoneSnapshot> latestZones = new();
+    private readonly Dictionary<uint, WorldLinkSnapshot> latestLinks = new();
+    private readonly Dictionary<uint, WorldObjectSnapshot> latestWorldObjects = new();
+    private readonly Dictionary<uint, WorldHazardSnapshot> latestHazards = new();
+    private readonly Dictionary<uint, WorldNpcSnapshot> latestNpcs = new();
+    private readonly HashSet<string> latestActiveObjectiveTargets = new(StringComparer.Ordinal);
 
     private readonly List<PendingInput> pendingInputs = new();
     private readonly ushort[] localCooldownTicks = new ushort[10];
@@ -118,6 +125,8 @@ public sealed class ArmamentGame : Game
 
     private UiScreen screen = UiScreen.Login;
     private bool pauseMenuOpen;
+    private bool inventoryPanelOpen;
+    private bool questLogOpen;
     private bool settingsReturnToInGame;
     private bool showVerboseHud;
     private string statusText = "Log in to continue.";
@@ -130,6 +139,22 @@ public sealed class ArmamentGame : Game
     private string characterNameField;
     private float worldZoom = DefaultWorldZoom;
     private bool linearWorldFiltering;
+    private readonly InventorySnapshot uiInventory;
+    private readonly DictionaryInventoryItemCatalog uiInventoryCatalog;
+    private InventoryItemInstance? heldInventoryItem;
+    private EquipSlot? heldFromEquipSlot;
+    private GridCoord? heldFromBackpackCell;
+    private readonly HashSet<string> inventoryLayoutIssuesSeen = new(StringComparer.Ordinal);
+    private readonly List<QuestLogActState> questLogActs = new();
+    private int selectedQuestActIndex;
+    private int selectedQuestZoneIndex;
+    private int selectedQuestIndex;
+    private static readonly EquipSlot[] RequiredInventorySlotOrder =
+    {
+        EquipSlot.MainHand, EquipSlot.OffHand, EquipSlot.Chest, EquipSlot.Legs,
+        EquipSlot.Head, EquipSlot.Hands, EquipSlot.Belt, EquipSlot.Feet,
+        EquipSlot.Ring1, EquipSlot.Ring2, EquipSlot.Amulet, EquipSlot.Relic
+    };
 
     public ArmamentGame()
     {
@@ -150,6 +175,14 @@ public sealed class ArmamentGame : Game
         characterNameField = $"Character {config.SelectedSlot + 1}";
         worldZoom = Math.Clamp(config.WorldZoom, 70f, 180f);
         linearWorldFiltering = false;
+
+        uiInventoryCatalog = BuildUiInventoryCatalog();
+        uiInventory = new InventorySnapshot
+        {
+            BackpackWidth = 12,
+            BackpackHeight = 8
+        };
+        InventoryRules.EnsureBackpackSize(uiInventory);
     }
 
     protected override void Initialize()
@@ -208,6 +241,21 @@ public sealed class ArmamentGame : Game
         if (screen == UiScreen.InGame && WasPressed(keyboard, previousKeyboard, Keys.F10))
         {
             showVerboseHud = !showVerboseHud;
+        }
+
+        if (screen == UiScreen.InGame && WasPressed(keyboard, previousKeyboard, Keys.I))
+        {
+            inventoryPanelOpen = !inventoryPanelOpen;
+        }
+
+        if (screen == UiScreen.InGame && WasPressed(keyboard, previousKeyboard, Keys.J))
+        {
+            questLogOpen = !questLogOpen;
+        }
+
+        if (screen == UiScreen.InGame && questLogOpen)
+        {
+            HandleQuestLogInput(keyboard, mouse);
         }
 
         DrainIncoming();
@@ -371,6 +419,7 @@ public sealed class ArmamentGame : Game
 
     private void HandleInGameBufferInputs(KeyboardState keyboard, MouseState mouse)
     {
+        var inventoryIntercept = inventoryPanelOpen;
         if (WasPressed(keyboard, previousKeyboard, Keys.LeftAlt) || WasPressed(keyboard, previousKeyboard, Keys.RightAlt))
         {
             showLootNames = !showLootNames;
@@ -392,7 +441,7 @@ public sealed class ArmamentGame : Game
             pickupPressedBuffered = true;
         }
 
-        var lmbPressed = WasPressed(mouse, previousMouse, true);
+        var lmbPressed = !inventoryIntercept && WasPressed(mouse, previousMouse, true);
         var clickedLoot = lmbPressed && IsLootClicked(mouse);
         if (clickedLoot)
         {
@@ -463,7 +512,7 @@ public sealed class ArmamentGame : Game
         var movement = ReadMovementInput(keyboard);
         localMoveInputVector = movement;
 
-        var actionFlags = ReadActionFlags(keyboard, mouse);
+        var actionFlags = ReadActionFlags(keyboard, mouse, inventoryPanelOpen || IsPointerOverInventoryModal(mouse));
         if (fastAttackTapTicksRemaining > 0)
         {
             actionFlags |= InputActionFlags.FastAttackHold;
@@ -597,17 +646,67 @@ public sealed class ArmamentGame : Game
         latestEntityHealth.Clear();
         latestEntityBuilderResource.Clear();
         latestEntitySpenderResource.Clear();
-        latestLinkOwnerByEntity.Clear();
-        latestLinkTargetByEntity.Clear();
-        latestLinkRemainingTicks.Clear();
+        latestEnemyArchetypeByEntity.Clear();
         latestEnemyAggroTarget.Clear();
         latestEnemyAggroThreat.Clear();
         latestEnemyForcedTicks.Clear();
         latestEnemyPrimaryStatusStacks.Clear();
         lootCurrencyById.Clear();
+        latestZones.Clear();
+        latestLinks.Clear();
+        latestWorldObjects.Clear();
+        latestHazards.Clear();
+        latestNpcs.Clear();
+        latestNpcs.Clear();
+        latestActiveObjectiveTargets.Clear();
 
         currentZone = snapshot.ZoneKind;
         currentInstanceId = snapshot.InstanceId;
+        RebuildQuestLog(snapshot.Objectives);
+        latestActiveObjectiveTargets.Clear();
+        for (var i = 0; i < snapshot.Objectives.Count; i++)
+        {
+            var objective = snapshot.Objectives[i];
+            if (objective.State == 1 && !string.IsNullOrWhiteSpace(objective.TargetId))
+            {
+                latestActiveObjectiveTargets.Add(objective.TargetId);
+            }
+        }
+
+        latestZones.Clear();
+        for (var i = 0; i < snapshot.Zones.Count; i++)
+        {
+            var zone = snapshot.Zones[i];
+            latestZones[zone.ZoneRuntimeId] = zone;
+        }
+
+        latestLinks.Clear();
+        for (var i = 0; i < snapshot.Links.Count; i++)
+        {
+            var link = snapshot.Links[i];
+            latestLinks[link.LinkRuntimeId] = link;
+        }
+
+        latestWorldObjects.Clear();
+        for (var i = 0; i < snapshot.WorldObjects.Count; i++)
+        {
+            var obj = snapshot.WorldObjects[i];
+            latestWorldObjects[obj.ObjectId] = obj;
+        }
+
+        latestHazards.Clear();
+        for (var i = 0; i < snapshot.Hazards.Count; i++)
+        {
+            var hazard = snapshot.Hazards[i];
+            latestHazards[hazard.HazardRuntimeId] = hazard;
+        }
+
+        latestNpcs.Clear();
+        for (var i = 0; i < snapshot.Npcs.Count; i++)
+        {
+            var npc = snapshot.Npcs[i];
+            latestNpcs[npc.NpcRuntimeId] = npc;
+        }
 
         foreach (var entity in snapshot.Entities)
         {
@@ -620,15 +719,9 @@ public sealed class ArmamentGame : Game
             latestEntityBuilderResource[entity.EntityId] = entity.BuilderResource;
             latestEntitySpenderResource[entity.EntityId] = entity.SpenderResource;
 
-            if (entity.Kind == EntityKind.Link)
-            {
-                latestLinkOwnerByEntity[entity.EntityId] = entity.BuilderResource;
-                latestLinkTargetByEntity[entity.EntityId] = entity.SpenderResource;
-                latestLinkRemainingTicks[entity.EntityId] = entity.Health;
-            }
-
             if (entity.Kind == EntityKind.Enemy)
             {
+                latestEnemyArchetypeByEntity[entity.EntityId] = entity.ArchetypeId;
                 latestEnemyAggroTarget[entity.EntityId] = entity.AggroTargetEntityId;
                 latestEnemyAggroThreat[entity.EntityId] = entity.AggroThreatValue;
                 latestEnemyForcedTicks[entity.EntityId] = entity.ForcedTargetTicks;
@@ -776,7 +869,7 @@ public sealed class ArmamentGame : Game
 
         foreach (var pair in latestEntityKinds)
         {
-            if ((pair.Value == EntityKind.Loot || pair.Value == EntityKind.Zone || pair.Value == EntityKind.Link) &&
+            if (pair.Value == EntityKind.Loot &&
                 latestEntities.TryGetValue(pair.Key, out var pos))
             {
                 renderEntities[pair.Key] = pos;
@@ -786,6 +879,11 @@ public sealed class ArmamentGame : Game
 
     private void DrawWorld(SpriteBatch batch, Texture2D px, Vector2 cameraPos)
     {
+        DrawCampaignHazards(batch, px, cameraPos);
+        DrawCampaignWorldObjects(batch, px, cameraPos);
+        DrawCampaignNpcs(batch, px, cameraPos);
+        DrawZones(batch, px, cameraPos);
+
         foreach (var pair in renderEntities)
         {
             if (!latestEntityKinds.TryGetValue(pair.Key, out var kind))
@@ -805,16 +903,6 @@ public sealed class ArmamentGame : Game
             var rect = new Rectangle((int)(screenPos.X - size * 0.5f), (int)(screenPos.Y - size * 0.5f), (int)size, (int)size);
             batch.Draw(px, rect, color);
 
-            if (kind == EntityKind.Zone)
-            {
-                DrawOutline(batch, rect, Color.LightBlue);
-            }
-
-            if (kind == EntityKind.Link && latestLinkOwnerByEntity.TryGetValue(pair.Key, out var ownerId) && latestLinkTargetByEntity.TryGetValue(pair.Key, out var targetId))
-            {
-                DrawLinkLine(batch, px, cameraPos, ownerId, targetId);
-            }
-
             if (kind == EntityKind.Loot && showLootNames && pair.Key != PortalEntityId && debugFont is not null)
             {
                 var amount = lootCurrencyById.TryGetValue(pair.Key, out var currency) ? currency : (ushort)0;
@@ -822,7 +910,147 @@ public sealed class ArmamentGame : Game
             }
         }
 
+        DrawLinks(batch, px, cameraPos);
         DrawPortalPrompt(batch, cameraPos);
+    }
+
+    private void DrawZones(SpriteBatch batch, Texture2D px, Vector2 cameraPos)
+    {
+        foreach (var zone in latestZones.Values)
+        {
+            var worldPos = new Vector2(
+                Quantization.DequantizePosition(zone.QuantizedX),
+                Quantization.DequantizePosition(zone.QuantizedY));
+            var screenPos = WorldToScreen(worldPos, cameraPos);
+            var size = Math.Clamp(zone.RadiusDeciUnits / 2f, 26f, 120f);
+            var rect = new Rectangle((int)(screenPos.X - size * 0.5f), (int)(screenPos.Y - size * 0.5f), (int)size, (int)size);
+            batch.Draw(px, rect, new Color(90, 210, 255, 96));
+            DrawOutline(batch, rect, Color.LightBlue);
+        }
+    }
+
+    private void DrawLinks(SpriteBatch batch, Texture2D px, Vector2 cameraPos)
+    {
+        foreach (var link in latestLinks.Values)
+        {
+            DrawLinkLine(batch, px, cameraPos, link.OwnerEntityId, link.TargetEntityId);
+        }
+    }
+
+    private void DrawCampaignHazards(SpriteBatch batch, Texture2D px, Vector2 cameraPos)
+    {
+        foreach (var hazard in latestHazards.Values)
+        {
+            var worldPos = new Vector2(
+                Quantization.DequantizePosition(hazard.QuantizedX),
+                Quantization.DequantizePosition(hazard.QuantizedY));
+            var screenPos = WorldToScreen(worldPos, cameraPos);
+            var radius = 48;
+            var rect = new Rectangle((int)(screenPos.X - radius), (int)(screenPos.Y - radius), radius * 2, radius * 2);
+            var tint = ResolveHazardColor(hazard.HazardId);
+            batch.Draw(px, rect, tint * 0.35f);
+            DrawOutline(batch, rect, tint);
+
+            if (debugFont is not null && showVerboseHud)
+            {
+                batch.DrawString(debugFont, $"{hazard.HazardId} ({hazard.RemainingTicks})", screenPos + new Vector2(-52f, -64f), new Color(245, 235, 190));
+            }
+        }
+    }
+
+    private void DrawCampaignWorldObjects(SpriteBatch batch, Texture2D px, Vector2 cameraPos)
+    {
+        foreach (var obj in latestWorldObjects.Values)
+        {
+            var worldPos = new Vector2(
+                Quantization.DequantizePosition(obj.QuantizedX),
+                Quantization.DequantizePosition(obj.QuantizedY));
+            var screenPos = WorldToScreen(worldPos, cameraPos);
+            var size = 28f;
+            var rect = new Rectangle((int)(screenPos.X - size * 0.5f), (int)(screenPos.Y - size * 0.5f), (int)size, (int)size);
+            var color = ResolveObjectColor(obj.Archetype, obj.ObjectiveState);
+            batch.Draw(px, rect, color);
+            DrawOutline(batch, rect, new Color(220, 228, 238, 220));
+
+            var isTrackedObjective = latestActiveObjectiveTargets.Contains(obj.ObjectDefId);
+            if (isTrackedObjective)
+            {
+                var marker = new Rectangle(rect.X - 6, rect.Y - 12, rect.Width + 12, rect.Height + 12);
+                DrawOutline(batch, marker, new Color(245, 210, 110, 240));
+            }
+
+            if (debugFont is not null)
+            {
+                var hp = $"{obj.Health}/{obj.MaxHealth}";
+                batch.DrawString(debugFont, hp, screenPos + new Vector2(-18f, -26f), new Color(238, 244, 252));
+                if (showVerboseHud)
+                {
+                    batch.DrawString(debugFont, obj.ObjectDefId, screenPos + new Vector2(-34f, 22f), new Color(200, 208, 225));
+                }
+            }
+        }
+    }
+
+    private void DrawCampaignNpcs(SpriteBatch batch, Texture2D px, Vector2 cameraPos)
+    {
+        foreach (var npc in latestNpcs.Values)
+        {
+            var worldPos = new Vector2(
+                Quantization.DequantizePosition(npc.QuantizedX),
+                Quantization.DequantizePosition(npc.QuantizedY));
+            var screenPos = WorldToScreen(worldPos, cameraPos);
+            var size = 30f;
+            var rect = new Rectangle((int)(screenPos.X - size * 0.5f), (int)(screenPos.Y - size * 0.5f), (int)size, (int)size);
+            var color = new Color(148, 182, 236, 235);
+            batch.Draw(px, rect, color);
+            DrawOutline(batch, rect, new Color(235, 240, 252, 220));
+
+            if (latestActiveObjectiveTargets.Contains(npc.NpcId))
+            {
+                var marker = new Rectangle(rect.X - 8, rect.Y - 14, rect.Width + 16, rect.Height + 16);
+                DrawOutline(batch, marker, new Color(245, 210, 110, 240));
+            }
+
+            if (debugFont is not null)
+            {
+                batch.DrawString(debugFont, npc.Name, screenPos + new Vector2(-32f, -28f), new Color(236, 242, 252));
+                if (showVerboseHud)
+                {
+                    batch.DrawString(debugFont, npc.NpcId, screenPos + new Vector2(-32f, 22f), new Color(200, 208, 225));
+                }
+            }
+        }
+    }
+
+    private static Color ResolveHazardColor(string hazardId)
+    {
+        if (hazardId.Contains("bell", StringComparison.OrdinalIgnoreCase))
+        {
+            return new Color(255, 205, 120, 220);
+        }
+
+        if (hazardId.Contains("gas", StringComparison.OrdinalIgnoreCase))
+        {
+            return new Color(140, 220, 150, 220);
+        }
+
+        return new Color(190, 125, 235, 220);
+    }
+
+    private static Color ResolveObjectColor(string archetype, byte objectiveState)
+    {
+        if (objectiveState == 2)
+        {
+            return new Color(70, 92, 70, 180);
+        }
+
+        return archetype.ToLowerInvariant() switch
+        {
+            "spawner" => new Color(185, 78, 78, 235),
+            "interactable" => new Color(88, 145, 206, 235),
+            "objective" => new Color(218, 175, 92, 235),
+            _ => new Color(132, 132, 132, 235)
+        };
     }
 
     private bool TryDrawLocalAnimatedPlayer(SpriteBatch batch, Vector2 screenPos, Vector2 worldPos)
@@ -1029,7 +1257,7 @@ public sealed class ArmamentGame : Game
 
         var status = $"[{currentZone}] {config.BaseClassId}/{config.SpecId} | Gold {localCurrency} | Aggro {(ResolveAggroSummary())}";
         batch.DrawString(font, status, new Vector2(dock.X + 2, dock.Y - 20), new Color(225, 230, 245, 235));
-        batch.DrawString(font, "F10 debug", new Vector2(dock.Right - 100, dock.Y - 20), new Color(210, 220, 240, 220));
+        batch.DrawString(font, "J quest log | F10 debug", new Vector2(dock.Right - 210, dock.Y - 20), new Color(210, 220, 240, 220));
 
         if (showVerboseHud)
         {
@@ -1041,9 +1269,9 @@ public sealed class ArmamentGame : Game
                 "Armament MonoGame Client",
                 $"Connection: {(netClient.IsConnected ? "connected" : "disconnected")} | Joined: {(joined ? "yes" : "no")} | Zone: {currentZone} ({currentInstanceId})",
                 $"Server: {config.Host}:{config.Port} | Account: {config.AccountSubject} ({config.AccountDisplayName})",
-                $"Local Entity: {localEntityId} | Snapshot: {(hasSnapshot ? "yes" : "no")} | Prediction: {(hasLocalPredictionState ? "yes" : "no")} | Links {latestEntityKinds.Values.Count(k => k == EntityKind.Link)}",
+                $"Local Entity: {localEntityId} | Snapshot: {(hasSnapshot ? "yes" : "no")} | Prediction: {(hasLocalPredictionState ? "yes" : "no")} | Links {latestLinks.Count}",
                 $"Move: {localMoveInputVector.X:0.00},{localMoveInputVector.Y:0.00} | Aim: {aimWorldPosition.X:0.00},{aimWorldPosition.Y:0.00}",
-                "Controls: WASD | LMB/RMB/Shift | E/R/Q/T + 1/2/3/4 | Z/F/H | Alt names | Esc menu"
+                "Controls: WASD | LMB/RMB/Shift | E/R/Q/T + 1/2/3/4 | Z/F/H | I inventory | J quest log | Alt names | Esc menu"
             };
             var y = 14f;
             for (var i = 0; i < lines.Length; i++)
@@ -1055,6 +1283,721 @@ public sealed class ArmamentGame : Game
             DrawFeedPanel(batch, font, "Combat", combatFeed, 8, 146, 460, 152);
             DrawFeedPanel(batch, font, "Server Cast Feed", castFeed, 476, 146, 460, 152);
         }
+
+        if (inventoryPanelOpen)
+        {
+            DrawInventoryPanel(batch, font);
+        }
+
+        if (questLogOpen && !inventoryPanelOpen)
+        {
+            DrawQuestLogPanel(batch, font);
+        }
+    }
+
+    private void DrawInventoryPanel(SpriteBatch batch, SpriteFont font)
+    {
+        var layout = BuildInventoryLayout();
+        batch.Draw(pixel!, layout.Panel, new Color(4, 12, 24, 238));
+        DrawOutline(batch, layout.Panel, new Color(160, 180, 215, 240));
+        var titleY = layout.Panel.Y + 8;
+        batch.DrawString(font, "Inventory [I]", new Vector2(layout.Panel.X + 10, titleY), Color.White);
+        var instructions = "LMB drag-drop | RMB quick-equip";
+        var instructionWidth = (int)MathF.Ceiling(font.MeasureString(instructions).X);
+        var instructionX = Math.Max(layout.Panel.X + 150, layout.Panel.Right - 12 - instructionWidth);
+        batch.DrawString(font, instructions, new Vector2(instructionX, titleY), new Color(196, 210, 236));
+
+        ValidateAndReportInventoryLayout(layout, font, instructions, instructionX);
+
+        foreach (var kv in layout.EquipRects)
+        {
+            var slotRect = kv.Value;
+            var slot = kv.Key;
+            batch.Draw(pixel!, slotRect, new Color(14, 28, 50, 235));
+            DrawOutline(batch, slotRect, new Color(92, 116, 150, 220));
+            var slotLabel = SlotIndexLabel(slot);
+            batch.DrawString(font, slotLabel, new Vector2(slotRect.X + 5, slotRect.Y + 4), new Color(204, 220, 245));
+        }
+
+        // Backpack grid.
+        for (var y = 0; y < uiInventory.BackpackHeight; y++)
+        {
+            for (var x = 0; x < uiInventory.BackpackWidth; x++)
+            {
+                var c = new Rectangle(
+                    layout.GridRect.X + x * (InventoryCellSize + InventoryCellSpacing),
+                    layout.GridRect.Y + y * (InventoryCellSize + InventoryCellSpacing),
+                    InventoryCellSize,
+                    InventoryCellSize);
+                batch.Draw(pixel!, c, new Color(12, 23, 42, 240));
+                DrawOutline(batch, c, new Color(68, 90, 126, 210));
+            }
+        }
+
+        var sectionHeaderY = titleY + 44;
+        batch.DrawString(font, "Paper Doll", new Vector2(layout.EquipRegion.X + 2, sectionHeaderY), new Color(190, 206, 230));
+        batch.DrawString(font, "Backpack", new Vector2(layout.GridRect.X + 2, layout.GridRect.Y - 40), new Color(190, 206, 230));
+        DrawInventoryItems(batch, font, layout);
+    }
+
+    private void DrawInventoryItems(SpriteBatch batch, SpriteFont font, InventoryUiLayout layout)
+    {
+        var mouse = Mouse.GetState();
+        DrawHeldDropPreview(batch, layout, mouse);
+
+        for (var i = 0; i < uiInventory.BackpackItems.Count; i++)
+        {
+            var item = uiInventory.BackpackItems[i];
+            if (!TryGetItemDrawRect(item, layout, out var rect))
+            {
+                continue;
+            }
+
+            DrawItemCard(batch, font, rect, item, heldInventoryItem is not null && string.Equals(heldInventoryItem.InstanceId, item.InstanceId, StringComparison.Ordinal), false, showName: false);
+        }
+
+        foreach (var kv in uiInventory.Equipment)
+        {
+            if (kv.Value is null || !layout.EquipRects.TryGetValue(kv.Key, out var slotRect))
+            {
+                continue;
+            }
+
+            var inset = new Rectangle(slotRect.X + 2, slotRect.Y + 2, Math.Max(1, slotRect.Width - 4), Math.Max(1, slotRect.Height - 4));
+            DrawItemCard(batch, font, inset, kv.Value, heldInventoryItem is not null && string.Equals(heldInventoryItem.InstanceId, kv.Value.InstanceId, StringComparison.Ordinal), true, showName: false);
+        }
+
+        if (heldInventoryItem is not null)
+        {
+            if (uiInventoryCatalog.TryGet(heldInventoryItem.ItemCode, out var def))
+            {
+                var width = InventoryRules.ResolveItemWidth(def);
+                var height = InventoryRules.ResolveItemHeight(def);
+                var w = width * InventoryCellSize + (width - 1) * InventoryCellSpacing;
+                var h = height * InventoryCellSize + (height - 1) * InventoryCellSpacing;
+                var dragRect = new Rectangle(mouse.X - w / 2, mouse.Y - h / 2, w, h);
+                DrawItemCard(batch, font, dragRect, heldInventoryItem, false, false, showName: false, alpha: 0.75f);
+            }
+        }
+
+        DrawHoveredItemTooltip(batch, font, layout, mouse);
+    }
+
+    private void DrawItemCard(SpriteBatch batch, SpriteFont font, Rectangle rect, InventoryItemInstance item, bool selected, bool equipped, bool showName, float alpha = 1f)
+    {
+        var baseColor = equipped ? new Color(64, 68, 46) : new Color(46, 64, 88);
+        var fill = Color.Lerp(baseColor, Color.Black, 0.25f);
+        fill *= alpha;
+        batch.Draw(pixel!, rect, fill);
+        DrawOutline(batch, rect, selected ? new Color(245, 236, 148) : new Color(164, 182, 214, 228));
+
+        if (showName)
+        {
+            var rawLabel = BuildItemLabel(item.ItemCode);
+            var maxChars = Math.Max(4, (rect.Width - 8) / 10);
+            var label = FitLabel(rawLabel, maxChars);
+            batch.DrawString(font, label, new Vector2(rect.X + 4, rect.Y + 4), new Color(238, 242, 250) * alpha);
+        }
+
+        if (item.Quantity > 1)
+        {
+            batch.DrawString(font, item.Quantity.ToString(), new Vector2(rect.Right - 22, rect.Bottom - 22), new Color(255, 255, 255) * alpha);
+        }
+    }
+
+    private void DrawHeldDropPreview(SpriteBatch batch, InventoryUiLayout layout, MouseState mouse)
+    {
+        if (heldInventoryItem is null || !uiInventoryCatalog.TryGet(heldInventoryItem.ItemCode, out var heldDef))
+        {
+            return;
+        }
+
+        var point = mouse.Position;
+        if (TryResolveBackpackCell(layout, point, out var cell))
+        {
+            var width = InventoryRules.ResolveItemWidth(heldDef);
+            var height = InventoryRules.ResolveItemHeight(heldDef);
+            var rect = BuildCellFootprintRect(layout, cell, width, height);
+            var canDrop = InventoryRules.CanPlaceAt(uiInventory, uiInventoryCatalog, heldInventoryItem.ItemCode, cell);
+            var overlay = canDrop ? new Color(35, 180, 90, 70) : new Color(190, 30, 30, 85);
+            var border = canDrop ? new Color(92, 230, 128, 220) : new Color(250, 82, 82, 230);
+            batch.Draw(pixel!, rect, overlay);
+            DrawOutline(batch, rect, border);
+            return;
+        }
+
+        if (TryResolveEquipSlot(layout, point, out var slot) && layout.EquipRects.TryGetValue(slot, out var slotRect))
+        {
+            var canEquip = CanEquipHeldToSlot(slot);
+            var overlay = canEquip ? new Color(35, 180, 90, 70) : new Color(190, 30, 30, 85);
+            var border = canEquip ? new Color(92, 230, 128, 220) : new Color(250, 82, 82, 230);
+            batch.Draw(pixel!, slotRect, overlay);
+            DrawOutline(batch, slotRect, border);
+        }
+    }
+
+    private void DrawHoveredItemTooltip(SpriteBatch batch, SpriteFont font, InventoryUiLayout layout, MouseState mouse)
+    {
+        if (!layout.Panel.Contains(mouse.Position))
+        {
+            return;
+        }
+
+        InventoryItemInstance? hovered = null;
+        if (TryResolveBackpackCell(layout, mouse.Position, out var cell) &&
+            InventoryRules.TryGetItemAtCell(uiInventory, uiInventoryCatalog, cell, out var bagItem, out _))
+        {
+            hovered = bagItem;
+        }
+        else if (TryResolveEquipSlot(layout, mouse.Position, out var slot) &&
+                 uiInventory.Equipment.TryGetValue(slot, out var equipped) &&
+                 equipped is not null)
+        {
+            hovered = equipped;
+        }
+
+        if (hovered is null || !uiInventoryCatalog.TryGet(hovered.ItemCode, out var def))
+        {
+            return;
+        }
+
+        var name = BuildItemLabel(hovered.ItemCode);
+        var line2 = $"{InventoryRules.ResolveItemWidth(def)}x{InventoryRules.ResolveItemHeight(def)}";
+        var line3 = hovered.Quantity > 1 ? $"Qty {hovered.Quantity}" : "Qty 1";
+        var tooltipW = 170;
+        var tooltipH = 66;
+        var x = Math.Min(graphics.PreferredBackBufferWidth - tooltipW - 8, mouse.X + 18);
+        var y = Math.Min(graphics.PreferredBackBufferHeight - tooltipH - 8, mouse.Y + 16);
+        var rect = new Rectangle(x, y, tooltipW, tooltipH);
+        batch.Draw(pixel!, rect, new Color(9, 18, 34, 240));
+        DrawOutline(batch, rect, new Color(171, 188, 220, 240));
+        batch.DrawString(font, name, new Vector2(rect.X + 6, rect.Y + 6), new Color(240, 244, 252));
+        batch.DrawString(font, line2, new Vector2(rect.X + 6, rect.Y + 26), new Color(202, 216, 240));
+        batch.DrawString(font, line3, new Vector2(rect.X + 6, rect.Y + 44), new Color(202, 216, 240));
+    }
+
+    private Rectangle BuildCellFootprintRect(InventoryUiLayout layout, GridCoord cell, int width, int height)
+    {
+        var x = layout.GridRect.X + cell.X * (InventoryCellSize + InventoryCellSpacing);
+        var y = layout.GridRect.Y + cell.Y * (InventoryCellSize + InventoryCellSpacing);
+        var w = width * InventoryCellSize + (width - 1) * InventoryCellSpacing;
+        var h = height * InventoryCellSize + (height - 1) * InventoryCellSpacing;
+        return new Rectangle(x, y, w, h);
+    }
+
+    private bool TryGetItemDrawRect(InventoryItemInstance item, InventoryUiLayout layout, out Rectangle rect)
+    {
+        rect = default;
+        if (!uiInventoryCatalog.TryGet(item.ItemCode, out var def))
+        {
+            return false;
+        }
+
+        var width = InventoryRules.ResolveItemWidth(def);
+        var height = InventoryRules.ResolveItemHeight(def);
+        var x = layout.GridRect.X + item.Position.X * (InventoryCellSize + InventoryCellSpacing);
+        var y = layout.GridRect.Y + item.Position.Y * (InventoryCellSize + InventoryCellSpacing);
+        var w = width * InventoryCellSize + (width - 1) * InventoryCellSpacing;
+        var h = height * InventoryCellSize + (height - 1) * InventoryCellSpacing;
+        rect = new Rectangle(x, y, w, h);
+        return true;
+    }
+
+    private InventoryUiLayout BuildInventoryLayout()
+    {
+        var gridW = uiInventory.BackpackWidth * InventoryCellSize + (uiInventory.BackpackWidth - 1) * InventoryCellSpacing;
+        var gridH = uiInventory.BackpackHeight * InventoryCellSize + (uiInventory.BackpackHeight - 1) * InventoryCellSpacing;
+        var panelW = Math.Max(560, gridW + 34);
+        var panelH = 42 + 240 + 36 + gridH + 14;
+        var panelX = Math.Max(16, graphics.PreferredBackBufferWidth - panelW - 12);
+        var panelY = 40;
+        var panel = new Rectangle(panelX, panelY, panelW, panelH);
+        var equipRegion = new Rectangle(panel.X + 20, panel.Y + 62, panel.Width - 40, 220);
+
+        var slotW = 72;
+        var tallH = 112;
+        var medH = 84;
+        var smallH = 52;
+        var accW = 62;
+        var accH = 34;
+        var topY = equipRegion.Y + 24;
+        var left1X = equipRegion.X + 6;   // 1
+        var left2X = left1X + slotW + 8;  // slots 5/6
+        var centerLeftX = left2X + slotW + 26; // 3
+        var centerRightX = centerLeftX + slotW + 20; // 4
+        var right1X = centerRightX + slotW + 26; // 7/8
+        var right2X = right1X + slotW + 8; // 2
+        var row2Y = topY + tallH + 8;
+        var accY = topY + tallH + 20;
+
+        var equipRects = new Dictionary<EquipSlot, Rectangle>
+        {
+            [EquipSlot.MainHand] = new Rectangle(left1X, topY, slotW, tallH),      // 1
+            [EquipSlot.OffHand] = new Rectangle(right2X, topY, slotW, tallH),      // 2
+            [EquipSlot.Chest] = new Rectangle(centerLeftX, topY, slotW, tallH),    // 3
+            [EquipSlot.Legs] = new Rectangle(centerRightX, topY, slotW, tallH),    // 4
+            [EquipSlot.Head] = new Rectangle(left2X, topY, slotW, medH),           // 5
+            [EquipSlot.Hands] = new Rectangle(left2X, topY + medH + 6, slotW, smallH), // 6
+            [EquipSlot.Belt] = new Rectangle(right1X, topY, slotW, medH),          // 7
+            [EquipSlot.Feet] = new Rectangle(right1X, topY + medH + 6, slotW, smallH), // 8
+            [EquipSlot.Ring1] = new Rectangle(centerLeftX, accY, accW, accH),      // 9
+            [EquipSlot.Ring2] = new Rectangle(centerLeftX + accW + 8, accY, accW, accH), // 10
+            [EquipSlot.Amulet] = new Rectangle(centerLeftX + (accW + 8) * 2, accY, accW, accH), // 11
+            [EquipSlot.Relic] = new Rectangle(centerLeftX + (accW + 8) * 3, accY, accW, accH)   // 12
+        };
+
+        var equipBottom = equipRects.Values.Max(r => r.Bottom);
+        var gridTop = Math.Max(equipBottom + 34, equipRegion.Bottom + 12);
+        var gridRect = new Rectangle(panel.X + (panel.Width - gridW) / 2, gridTop, gridW, gridH);
+
+        return new InventoryUiLayout(panel, equipRegion, gridRect, equipRects);
+    }
+
+    private void ValidateAndReportInventoryLayout(InventoryUiLayout layout, SpriteFont font, string instructions, int instructionX)
+    {
+        var issues = new List<string>();
+        if (layout.EquipRects.Count != 12)
+        {
+            issues.Add($"slot count {layout.EquipRects.Count} != 12");
+        }
+
+        foreach (var required in RequiredInventorySlotOrder)
+        {
+            if (!layout.EquipRects.ContainsKey(required))
+            {
+                issues.Add($"missing slot {required}");
+            }
+        }
+
+        if (!ContainsRect(layout.Panel, layout.EquipRegion))
+        {
+            issues.Add("equip region outside panel");
+        }
+
+        if (!ContainsRect(layout.Panel, layout.GridRect))
+        {
+            issues.Add("grid outside panel");
+        }
+
+        if (layout.GridRect.Top <= layout.EquipRects.Values.Max(r => r.Bottom))
+        {
+            issues.Add("grid overlaps paper-doll slots");
+        }
+
+        var values = layout.EquipRects.Values.ToArray();
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (!ContainsRect(layout.Panel, values[i]))
+            {
+                issues.Add($"slot out of panel: {i + 1}");
+            }
+
+            if (values[i].Intersects(layout.GridRect))
+            {
+                issues.Add($"slot intersects grid: {i + 1}");
+            }
+
+            for (var j = i + 1; j < values.Length; j++)
+            {
+                if (values[i].Intersects(values[j]))
+                {
+                    issues.Add($"slot overlap pair: {i + 1}/{j + 1}");
+                }
+            }
+        }
+
+        if (instructionX < layout.Panel.X + 150)
+        {
+            issues.Add("header instructions clipped");
+        }
+
+        var instructionWidth = (int)MathF.Ceiling(font.MeasureString(instructions).X);
+        if (instructionX + instructionWidth > layout.Panel.Right - 8)
+        {
+            issues.Add("header instructions overflow");
+        }
+
+        for (var i = 0; i < issues.Count; i++)
+        {
+            if (!inventoryLayoutIssuesSeen.Add(issues[i]))
+            {
+                continue;
+            }
+
+            LogCast($"[INV-LAYOUT] {issues[i]}");
+        }
+    }
+
+    private static bool ContainsRect(Rectangle outer, Rectangle inner)
+    {
+        return inner.Left >= outer.Left &&
+               inner.Top >= outer.Top &&
+               inner.Right <= outer.Right &&
+               inner.Bottom <= outer.Bottom;
+    }
+
+    private static string BuildItemLabel(string itemCode)
+    {
+        var label = itemCode.StartsWith("item.", StringComparison.Ordinal) ? itemCode["item.".Length..] : itemCode;
+        var at = label.LastIndexOf('.');
+        if (at >= 0 && at < label.Length - 1)
+        {
+            label = label[(at + 1)..];
+        }
+
+        return label;
+    }
+
+    private static string FitLabel(string value, int maxChars)
+    {
+        if (value.Length <= maxChars)
+        {
+            return value;
+        }
+
+        return maxChars <= 3 ? value[..Math.Max(1, maxChars)] : value[..(maxChars - 3)] + "...";
+    }
+
+    private static string SlotIndexLabel(EquipSlot slot)
+    {
+        return slot switch
+        {
+            EquipSlot.MainHand => "1",
+            EquipSlot.OffHand => "2",
+            EquipSlot.Chest => "3",
+            EquipSlot.Legs => "4",
+            EquipSlot.Head => "5",
+            EquipSlot.Hands => "6",
+            EquipSlot.Belt => "7",
+            EquipSlot.Feet => "8",
+            EquipSlot.Ring1 => "9",
+            EquipSlot.Ring2 => "10",
+            EquipSlot.Amulet => "11",
+            EquipSlot.Relic => "12",
+            _ => "?"
+        };
+    }
+
+    private void UpdateInventoryUi(MouseState mouse)
+    {
+        if (!inventoryPanelOpen)
+        {
+            return;
+        }
+
+        var leftPressed = WasPressed(mouse, previousMouse, true);
+        var leftReleased = WasReleased(mouse, previousMouse, true);
+        var rightPressed = WasPressed(mouse, previousMouse, false);
+        if (!leftPressed && !leftReleased && !rightPressed)
+        {
+            return;
+        }
+
+        var layout = BuildInventoryLayout();
+        var point = new Point(mouse.X, mouse.Y);
+        var inPanel = layout.Panel.Contains(point);
+
+        if (rightPressed && inPanel && heldInventoryItem is null)
+        {
+            HandleInventoryRightClick(layout, point);
+            return;
+        }
+
+        if (leftPressed && inPanel && heldInventoryItem is null)
+        {
+            BeginInventoryDrag(layout, point);
+            return;
+        }
+
+        if (leftReleased && heldInventoryItem is not null)
+        {
+            TryDropHeldItem(layout, point, inPanel);
+        }
+    }
+
+    private void BeginInventoryDrag(InventoryUiLayout layout, Point point)
+    {
+        if (TryResolveBackpackCell(layout, point, out var sourceCell) &&
+            InventoryRules.TryGetItemAtCell(uiInventory, uiInventoryCatalog, sourceCell, out var sourceItem, out var sourceIndex))
+        {
+            heldInventoryItem = sourceItem;
+            heldFromBackpackCell = sourceItem.Position;
+            heldFromEquipSlot = null;
+            uiInventory.BackpackItems.RemoveAt(sourceIndex);
+            return;
+        }
+
+        if (TryResolveEquipSlot(layout, point, out var sourceSlot) &&
+            uiInventory.Equipment.TryGetValue(sourceSlot, out var equipped) &&
+            equipped is not null)
+        {
+            heldInventoryItem = equipped;
+            heldFromEquipSlot = sourceSlot;
+            heldFromBackpackCell = null;
+            uiInventory.Equipment[sourceSlot] = null;
+        }
+    }
+
+    private void TryDropHeldItem(InventoryUiLayout layout, Point point, bool inPanel)
+    {
+        if (heldInventoryItem is null)
+        {
+            return;
+        }
+
+        if (!inPanel)
+        {
+            RestoreHeldItem();
+            return;
+        }
+
+        if (TryResolveBackpackCell(layout, point, out var dropCell))
+        {
+            if (InventoryRules.CanPlaceAt(uiInventory, uiInventoryCatalog, heldInventoryItem.ItemCode, dropCell))
+            {
+                heldInventoryItem.Position = dropCell;
+                uiInventory.BackpackItems.Add(heldInventoryItem);
+                ClearHeldItem();
+                return;
+            }
+
+            RestoreHeldItem();
+            return;
+        }
+
+        if (TryResolveEquipSlot(layout, point, out var targetSlot))
+        {
+            if (TryDropHeldToEquip(targetSlot))
+            {
+                ClearHeldItem();
+                return;
+            }
+        }
+
+        RestoreHeldItem();
+    }
+
+    private void HandleInventoryRightClick(InventoryUiLayout layout, Point point)
+    {
+        if (TryResolveBackpackCell(layout, point, out var sourceCell))
+        {
+            if (InventoryRules.TryGetItemAtCell(uiInventory, uiInventoryCatalog, sourceCell, out var source, out _) &&
+                uiInventoryCatalog.TryGet(source.ItemCode, out var def))
+            {
+                var slots = ResolveQuickEquipSlots(def);
+                for (var i = 0; i < slots.Count; i++)
+                {
+                    var slot = slots[i];
+                    var tryEquip = InventoryOps.BackpackToEquip(uiInventory, uiInventoryCatalog, new BackpackToEquipRequest
+                    {
+                        BackpackCell = sourceCell,
+                        TargetSlot = slot
+                    });
+                    if (tryEquip.Success)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            return;
+        }
+
+        if (TryResolveEquipSlot(layout, point, out var equipSlot))
+        {
+            _ = InventoryOps.QuickUnequip(uiInventory, uiInventoryCatalog, equipSlot);
+        }
+    }
+
+    private void RestoreHeldItem()
+    {
+        if (heldInventoryItem is null)
+        {
+            return;
+        }
+
+        if (heldFromEquipSlot is EquipSlot slot)
+        {
+            uiInventory.Equipment[slot] = heldInventoryItem;
+        }
+        else if (heldFromBackpackCell is GridCoord cell)
+        {
+            if (!InventoryRules.CanPlaceAt(uiInventory, uiInventoryCatalog, heldInventoryItem.ItemCode, cell))
+            {
+                if (!InventoryRules.TryFindFirstFit(uiInventory, uiInventoryCatalog, heldInventoryItem.ItemCode, out cell))
+                {
+                    cell = new GridCoord { X = 0, Y = 0 };
+                }
+            }
+
+            heldInventoryItem.Position = cell;
+            uiInventory.BackpackItems.Add(heldInventoryItem);
+        }
+
+        ClearHeldItem();
+    }
+
+    private bool TryDropHeldToEquip(EquipSlot targetSlot)
+    {
+        if (heldInventoryItem is null || !CanEquipHeldToSlot(targetSlot))
+        {
+            return false;
+        }
+
+        var tempCell = heldFromBackpackCell;
+        if (!tempCell.HasValue || !InventoryRules.CanPlaceAt(uiInventory, uiInventoryCatalog, heldInventoryItem.ItemCode, tempCell.Value))
+        {
+            if (!InventoryRules.TryFindFirstFit(uiInventory, uiInventoryCatalog, heldInventoryItem.ItemCode, out var found))
+            {
+                return false;
+            }
+
+            tempCell = found;
+        }
+
+        heldInventoryItem.Position = tempCell.Value;
+        uiInventory.BackpackItems.Add(heldInventoryItem);
+        var result = InventoryOps.BackpackToEquip(uiInventory, uiInventoryCatalog, new BackpackToEquipRequest
+        {
+            BackpackCell = tempCell,
+            TargetSlot = targetSlot
+        });
+        if (!result.Success)
+        {
+            uiInventory.BackpackItems.RemoveAll(x => string.Equals(x.InstanceId, heldInventoryItem.InstanceId, StringComparison.Ordinal));
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool CanEquipHeldToSlot(EquipSlot targetSlot)
+    {
+        if (heldInventoryItem is null || !uiInventoryCatalog.TryGet(heldInventoryItem.ItemCode, out var definition))
+        {
+            return false;
+        }
+
+        if (!InventoryRules.IsEquipmentSlotAllowed(definition, targetSlot))
+        {
+            return false;
+        }
+
+        if (InventoryRules.ViolatesEquipUniqueKey(uiInventory, uiInventoryCatalog, definition, targetSlot))
+        {
+            return false;
+        }
+
+        if (!uiInventory.Equipment.TryGetValue(targetSlot, out var existing) || existing is null)
+        {
+            return true;
+        }
+
+        // Equipping into an occupied slot requires displaced item to fit back in backpack.
+        return InventoryRules.TryFindFirstFit(uiInventory, uiInventoryCatalog, existing.ItemCode, out _);
+    }
+
+    private void ClearHeldItem()
+    {
+        heldInventoryItem = null;
+        heldFromEquipSlot = null;
+        heldFromBackpackCell = null;
+    }
+
+    private bool TryResolveBackpackCell(InventoryUiLayout layout, Point point, out GridCoord cell)
+    {
+        cell = default;
+        if (!layout.GridRect.Contains(point))
+        {
+            return false;
+        }
+
+        var step = InventoryCellSize + InventoryCellSpacing;
+        var localX = point.X - layout.GridRect.X;
+        var localY = point.Y - layout.GridRect.Y;
+        var x = localX / step;
+        var y = localY / step;
+        if (x < 0 || y < 0 || x >= uiInventory.BackpackWidth || y >= uiInventory.BackpackHeight)
+        {
+            return false;
+        }
+
+        cell = new GridCoord { X = x, Y = y };
+        return true;
+    }
+
+    private bool TryResolveEquipSlot(InventoryUiLayout layout, Point point, out EquipSlot slot)
+    {
+        foreach (var kv in layout.EquipRects)
+        {
+            if (kv.Value.Contains(point))
+            {
+                slot = kv.Key;
+                return true;
+            }
+        }
+
+        slot = default;
+        return false;
+    }
+
+    private static DictionaryInventoryItemCatalog BuildUiInventoryCatalog()
+    {
+        return new DictionaryInventoryItemCatalog(new Dictionary<string, InventoryItemDefinition>(StringComparer.Ordinal)
+        {
+            ["item.sword.iron"] = new InventoryItemDefinition { ItemCode = "item.sword.iron", MaxStack = 1, GridWidth = 1, GridHeight = 3, EquipSlots = { EquipSlot.MainHand } },
+            ["item.shield.ward"] = new InventoryItemDefinition { ItemCode = "item.shield.ward", MaxStack = 1, GridWidth = 2, GridHeight = 3, EquipSlots = { EquipSlot.OffHand } },
+            ["item.helm.guard"] = new InventoryItemDefinition { ItemCode = "item.helm.guard", MaxStack = 1, GridWidth = 2, GridHeight = 2, EquipSlots = { EquipSlot.Head } },
+            ["item.plate.bastion"] = new InventoryItemDefinition { ItemCode = "item.plate.bastion", MaxStack = 1, GridWidth = 2, GridHeight = 3, EquipSlots = { EquipSlot.Chest } },
+            ["item.gloves.iron"] = new InventoryItemDefinition { ItemCode = "item.gloves.iron", MaxStack = 1, GridWidth = 2, GridHeight = 2, EquipSlots = { EquipSlot.Hands } },
+            ["item.greaves.iron"] = new InventoryItemDefinition { ItemCode = "item.greaves.iron", MaxStack = 1, GridWidth = 2, GridHeight = 2, EquipSlots = { EquipSlot.Legs } },
+            ["item.boots.iron"] = new InventoryItemDefinition { ItemCode = "item.boots.iron", MaxStack = 1, GridWidth = 2, GridHeight = 2, EquipSlots = { EquipSlot.Feet } },
+            ["item.belt.guard"] = new InventoryItemDefinition { ItemCode = "item.belt.guard", MaxStack = 1, GridWidth = 2, GridHeight = 1, EquipSlots = { EquipSlot.Belt } },
+            ["item.ring.guard"] = new InventoryItemDefinition { ItemCode = "item.ring.guard", MaxStack = 1, GridWidth = 1, GridHeight = 1, EquipSlots = { EquipSlot.Ring1, EquipSlot.Ring2 }, EquipUniqueKey = "ring.guard" },
+            ["item.amulet.star"] = new InventoryItemDefinition { ItemCode = "item.amulet.star", MaxStack = 1, GridWidth = 1, GridHeight = 1, EquipSlots = { EquipSlot.Amulet } },
+            ["item.relic.ward"] = new InventoryItemDefinition { ItemCode = "item.relic.ward", MaxStack = 1, GridWidth = 2, GridHeight = 2, EquipSlots = { EquipSlot.Relic } },
+            ["item.potion.small"] = new InventoryItemDefinition { ItemCode = "item.potion.small", MaxStack = 20, GridWidth = 1, GridHeight = 1 }
+        });
+    }
+
+    private void SeedUiInventory()
+    {
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.sword.iron", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.shield.ward", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.helm.guard", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.plate.bastion", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.gloves.iron", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.greaves.iron", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.boots.iron", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.belt.guard", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.ring.guard", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.amulet.star", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.relic.ward", Quantity = 1 });
+        _ = InventoryOps.AddToBackpack(uiInventory, uiInventoryCatalog, new InventoryItemStack { ItemCode = "item.potion.small", Quantity = 13 });
+    }
+
+    private static List<EquipSlot> ResolveQuickEquipSlots(InventoryItemDefinition definition)
+    {
+        if (!HasAccessoryTag(definition))
+        {
+            return definition.EquipSlots;
+        }
+
+        return new List<EquipSlot> { EquipSlot.Ring1, EquipSlot.Ring2, EquipSlot.Amulet, EquipSlot.Relic };
+    }
+
+    private static bool HasAccessoryTag(InventoryItemDefinition definition)
+    {
+        for (var i = 0; i < definition.EquipSlots.Count; i++)
+        {
+            var slot = definition.EquipSlots[i];
+            if (slot == EquipSlot.Ring1 || slot == EquipSlot.Ring2 || slot == EquipSlot.Amulet || slot == EquipSlot.Relic)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void DrawGaugePanel(SpriteBatch batch, SpriteFont font, Rectangle rect, string title, int value, int max, Color fill, string valueLabel)
@@ -1126,7 +2069,10 @@ public sealed class ArmamentGame : Game
             {
                 var threat = latestEnemyAggroThreat.TryGetValue(pair.Key, out var t) ? t : (ushort)0;
                 var forced = latestEnemyForcedTicks.TryGetValue(pair.Key, out var f) ? f : (byte)0;
-                return $"enemy {pair.Key}: threat={threat} forced={forced}";
+                var archetype = latestEnemyArchetypeByEntity.TryGetValue(pair.Key, out var id) && !string.IsNullOrWhiteSpace(id)
+                    ? id
+                    : "enemy.unknown";
+                return $"{archetype} ({pair.Key}): threat={threat} forced={forced}";
             }
         }
 
@@ -1422,6 +2368,11 @@ public sealed class ArmamentGame : Game
 
     private void UpdateInGameUi(MouseState mouse, KeyboardState keyboard)
     {
+        if (inventoryPanelOpen && !pauseMenuOpen)
+        {
+            UpdateInventoryUi(mouse);
+        }
+
         if (pauseMenuOpen)
         {
             HandleUiMouse(mouse);
@@ -1719,8 +2670,6 @@ public sealed class ArmamentGame : Game
             EntityKind.Player => 30f,
             EntityKind.Enemy => 34f,
             EntityKind.Loot => 24f,
-            EntityKind.Zone => 54f,
-            EntityKind.Link => 16f,
             _ => 22f
         };
     }
@@ -1733,8 +2682,6 @@ public sealed class ArmamentGame : Game
             EntityKind.Player => Color.Cyan,
             EntityKind.Enemy => Color.Red,
             EntityKind.Loot => Color.Gold,
-            EntityKind.Zone => new Color(90, 210, 255, 180),
-            EntityKind.Link => Color.Magenta,
             _ => Color.White
         };
     }
@@ -1751,15 +2698,33 @@ public sealed class ArmamentGame : Game
             : current.RightButton == ButtonState.Pressed && previous.RightButton == ButtonState.Released;
     }
 
-    private InputActionFlags ReadActionFlags(KeyboardState keyboard, MouseState mouse)
+    private static bool WasReleased(MouseState current, MouseState previous, bool left)
+    {
+        return left
+            ? current.LeftButton == ButtonState.Released && previous.LeftButton == ButtonState.Pressed
+            : current.RightButton == ButtonState.Released && previous.RightButton == ButtonState.Pressed;
+    }
+
+    private bool IsPointerOverInventoryModal(MouseState mouse)
+    {
+        if (!inventoryPanelOpen || pauseMenuOpen || screen != UiScreen.InGame)
+        {
+            return false;
+        }
+
+        var layout = BuildInventoryLayout();
+        return layout.Panel.Contains(mouse.Position);
+    }
+
+    private InputActionFlags ReadActionFlags(KeyboardState keyboard, MouseState mouse, bool suppressMouseCombat)
     {
         var flags = InputActionFlags.None;
-        if (mouse.LeftButton == ButtonState.Pressed)
+        if (!suppressMouseCombat && mouse.LeftButton == ButtonState.Pressed)
         {
             flags |= InputActionFlags.FastAttackHold;
         }
 
-        if (mouse.RightButton == ButtonState.Pressed)
+        if (!suppressMouseCombat && mouse.RightButton == ButtonState.Pressed)
         {
             flags |= InputActionFlags.HeavyAttackHold;
         }
@@ -1780,6 +2745,7 @@ public sealed class ArmamentGame : Game
 
         if (interactPressedBufferedForSim)
         {
+            flags |= InputActionFlags.Interact;
             flags |= InputActionFlags.InteractPortal;
             interactPressedBufferedForSim = false;
         }
@@ -1958,14 +2924,18 @@ public sealed class ArmamentGame : Game
         latestEntityHealth.Clear();
         latestEntityBuilderResource.Clear();
         latestEntitySpenderResource.Clear();
-        latestLinkOwnerByEntity.Clear();
-        latestLinkTargetByEntity.Clear();
-        latestLinkRemainingTicks.Clear();
+        latestEnemyArchetypeByEntity.Clear();
         latestEnemyAggroTarget.Clear();
         latestEnemyAggroThreat.Clear();
         latestEnemyForcedTicks.Clear();
         latestEnemyPrimaryStatusStacks.Clear();
         lootCurrencyById.Clear();
+        latestZones.Clear();
+        latestLinks.Clear();
+        latestWorldObjects.Clear();
+        latestHazards.Clear();
+        latestActiveObjectiveTargets.Clear();
+        questLogActs.Clear();
         remoteEntitySamples.Clear();
         pendingInputs.Clear();
 
@@ -2003,6 +2973,9 @@ public sealed class ArmamentGame : Game
         interactPressedBufferedForZone = false;
         returnHomePressedBuffered = false;
         settingsReturnToInGame = false;
+        selectedQuestActIndex = 0;
+        selectedQuestZoneIndex = 0;
+        selectedQuestIndex = 0;
 
         Array.Clear(localCooldownTicks, 0, localCooldownTicks.Length);
     }
@@ -2030,371 +3003,13 @@ public sealed class ArmamentGame : Game
         public Vector2 Position;
     }
 
+    private readonly record struct InventoryUiLayout(
+        Rectangle Panel,
+        Rectangle EquipRegion,
+        Rectangle GridRect,
+        Dictionary<EquipSlot, Rectangle> EquipRects);
+
     private readonly record struct UiButton(Rectangle Bounds, string Label, Action OnClick, bool Enabled);
     private readonly record struct UiTextField(string Id, Rectangle Bounds);
-}
 
-internal sealed class UdpProtocolClient : IDisposable
-{
-    private readonly ConcurrentQueue<IProtocolMessage> inbox = new();
-    private UdpClient? udp;
-    private IPEndPoint? endpoint;
-    private CancellationTokenSource? cts;
-
-    public bool IsConnected => udp is not null;
-
-    public void Connect(string host, int port)
-    {
-        if (udp is not null)
-        {
-            return;
-        }
-
-        cts = new CancellationTokenSource();
-        udp = new UdpClient(0);
-        endpoint = new IPEndPoint(IPAddress.Parse(host), port);
-        _ = ReceiveLoopAsync(cts.Token);
-    }
-
-    public void Send(IProtocolMessage message)
-    {
-        if (udp is null || endpoint is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var payload = ProtocolCodec.Encode(message);
-            udp.Send(payload, payload.Length, endpoint);
-        }
-        catch
-        {
-        }
-    }
-
-    public bool TryDequeue(out IProtocolMessage message)
-    {
-        return inbox.TryDequeue(out message!);
-    }
-
-    public void Dispose()
-    {
-        cts?.Cancel();
-        cts?.Dispose();
-        cts = null;
-        udp?.Dispose();
-        udp = null;
-        endpoint = null;
-        while (inbox.TryDequeue(out _))
-        {
-        }
-    }
-
-    private async Task ReceiveLoopAsync(CancellationToken ct)
-    {
-        if (udp is null)
-        {
-            return;
-        }
-
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                var result = await udp.ReceiveAsync(ct);
-                if (ProtocolCodec.TryDecode(result.Buffer, out var msg) && msg is not null)
-                {
-                    inbox.Enqueue(msg);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (ObjectDisposedException)
-            {
-                break;
-            }
-            catch
-            {
-            }
-        }
-    }
-}
-
-internal sealed class ClientConfig
-{
-    private const string DefaultPathName = "config.json";
-
-    public string Host { get; set; } = "127.0.0.1";
-    public int Port { get; set; } = 9000;
-    public string AccountSubject { get; set; } = "local:dev-account";
-    public string AccountDisplayName { get; set; } = "DevAccount";
-    public int SelectedSlot { get; set; }
-    public string CharacterName { get; set; } = "Character 1";
-    public string BaseClassId { get; set; } = ClassSpecCatalog.NormalizeBaseClass(null);
-    public string SpecId { get; set; } = ClassSpecCatalog.NormalizeSpecForClass(ClassSpecCatalog.NormalizeBaseClass(null), null);
-    public float WorldZoom { get; set; } = 108f;
-    public bool LinearWorldFiltering { get; set; } = false;
-
-    public static ClientConfig Load()
-    {
-        var path = ConfigPath();
-        try
-        {
-            if (File.Exists(path))
-            {
-                var json = File.ReadAllText(path);
-                var cfg = JsonSerializer.Deserialize<ClientConfig>(json);
-                if (cfg is not null)
-                {
-                    cfg.BaseClassId = ClassSpecCatalog.NormalizeBaseClass(cfg.BaseClassId);
-                    cfg.SpecId = ClassSpecCatalog.NormalizeSpecForClass(cfg.BaseClassId, cfg.SpecId);
-                    cfg.SelectedSlot = Math.Clamp(cfg.SelectedSlot, 0, 5);
-                    if (string.IsNullOrWhiteSpace(cfg.CharacterName))
-                    {
-                        cfg.CharacterName = $"Character {cfg.SelectedSlot + 1}";
-                    }
-                    cfg.WorldZoom = Math.Clamp(cfg.WorldZoom, 70f, 180f);
-
-                    return cfg;
-                }
-            }
-        }
-        catch
-        {
-        }
-
-        return new ClientConfig();
-    }
-
-    public void Save()
-    {
-        try
-        {
-            BaseClassId = ClassSpecCatalog.NormalizeBaseClass(BaseClassId);
-            SpecId = ClassSpecCatalog.NormalizeSpecForClass(BaseClassId, SpecId);
-            SelectedSlot = Math.Clamp(SelectedSlot, 0, 5);
-            if (string.IsNullOrWhiteSpace(CharacterName))
-            {
-                CharacterName = $"Character {SelectedSlot + 1}";
-            }
-            WorldZoom = Math.Clamp(WorldZoom, 70f, 180f);
-
-            var path = ConfigPath();
-            var dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(path, json);
-        }
-        catch
-        {
-        }
-    }
-
-    public static string ConfigPath()
-    {
-        var root = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(root, "Armament", "client-mg", DefaultPathName);
-    }
-}
-
-internal sealed class CharacterSlotStore
-{
-    private const int MaxSlots = 6;
-    private readonly Dictionary<string, CharacterSlotRecord?[]> slotsByAccount = new(StringComparer.OrdinalIgnoreCase);
-
-    public static CharacterSlotStore Load()
-    {
-        var store = new CharacterSlotStore();
-        var path = PathOnDisk();
-        try
-        {
-            if (!File.Exists(path))
-            {
-                return store;
-            }
-
-            var json = File.ReadAllText(path);
-            var dto = JsonSerializer.Deserialize<CharacterSlotStoreDto>(json);
-            if (dto?.Accounts is null)
-            {
-                return store;
-            }
-
-            foreach (var acc in dto.Accounts)
-            {
-                var arr = new CharacterSlotRecord?[MaxSlots];
-                if (acc.Slots is not null)
-                {
-                    for (var i = 0; i < MaxSlots && i < acc.Slots.Count; i++)
-                    {
-                        var slot = acc.Slots[i];
-                        if (slot is null || string.IsNullOrWhiteSpace(slot.Name))
-                        {
-                            continue;
-                        }
-
-                        slot.BaseClassId = ClassSpecCatalog.NormalizeBaseClass(slot.BaseClassId);
-                        slot.SpecId = ClassSpecCatalog.NormalizeSpecForClass(slot.BaseClassId, slot.SpecId);
-                        arr[i] = slot;
-                    }
-                }
-
-                store.slotsByAccount[NormalizeSubject(acc.AccountSubject)] = arr;
-            }
-        }
-        catch
-        {
-        }
-
-        return store;
-    }
-
-    public void Save()
-    {
-        try
-        {
-            var dto = new CharacterSlotStoreDto
-            {
-                Accounts = slotsByAccount.Select(pair => new AccountSlotsDto
-                {
-                    AccountSubject = pair.Key,
-                    Slots = pair.Value.ToList()
-                }).ToList()
-            };
-
-            var path = PathOnDisk();
-            var dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            var json = JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(path, json);
-        }
-        catch
-        {
-        }
-    }
-
-    public bool TryLoadSlot(string accountSubject, int slot, out CharacterSlotRecord? record)
-    {
-        var arr = EnsureAccountArray(accountSubject);
-        slot = Math.Clamp(slot, 0, MaxSlots - 1);
-        record = arr[slot];
-        return record is not null && !string.IsNullOrWhiteSpace(record.Name);
-    }
-
-    public void SaveSlot(string accountSubject, int slot, CharacterSlotRecord record)
-    {
-        var arr = EnsureAccountArray(accountSubject);
-        slot = Math.Clamp(slot, 0, MaxSlots - 1);
-        arr[slot] = new CharacterSlotRecord
-        {
-            Name = record.Name.Trim(),
-            BaseClassId = ClassSpecCatalog.NormalizeBaseClass(record.BaseClassId),
-            SpecId = ClassSpecCatalog.NormalizeSpecForClass(record.BaseClassId, record.SpecId)
-        };
-    }
-
-    public void DeleteSlotAndCompact(string accountSubject, int deletedSlot, int maxSlots)
-    {
-        var arr = EnsureAccountArray(accountSubject);
-        var cap = Math.Clamp(maxSlots, 1, MaxSlots);
-        deletedSlot = Math.Clamp(deletedSlot, 0, cap - 1);
-        for (var i = deletedSlot; i < cap - 1; i++)
-        {
-            arr[i] = arr[i + 1];
-        }
-
-        arr[cap - 1] = null;
-    }
-
-    public List<int> GetFilledSlots(string accountSubject, int maxSlots)
-    {
-        var arr = EnsureAccountArray(accountSubject);
-        var cap = Math.Clamp(maxSlots, 1, MaxSlots);
-        var list = new List<int>(cap);
-        for (var i = 0; i < cap; i++)
-        {
-            if (arr[i] is not null && !string.IsNullOrWhiteSpace(arr[i]!.Name))
-            {
-                list.Add(i);
-            }
-        }
-
-        return list;
-    }
-
-    public int GetNextEmptySlot(string accountSubject, int maxSlots)
-    {
-        var arr = EnsureAccountArray(accountSubject);
-        var cap = Math.Clamp(maxSlots, 1, MaxSlots);
-        for (var i = 0; i < cap; i++)
-        {
-            if (arr[i] is null || string.IsNullOrWhiteSpace(arr[i]!.Name))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    private CharacterSlotRecord?[] EnsureAccountArray(string subject)
-    {
-        var key = NormalizeSubject(subject);
-        if (!slotsByAccount.TryGetValue(key, out var arr))
-        {
-            arr = new CharacterSlotRecord?[MaxSlots];
-            slotsByAccount[key] = arr;
-        }
-
-        return arr;
-    }
-
-    public static string NormalizeSubject(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return "local_guest";
-        }
-
-        return input.Trim().ToLowerInvariant()
-            .Replace(":", "_")
-            .Replace("/", "_")
-            .Replace("\\", "_")
-            .Replace(" ", "_");
-    }
-
-    private static string PathOnDisk()
-    {
-        var root = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(root, "Armament", "client-mg", "character-slots.json");
-    }
-}
-
-internal sealed class CharacterSlotRecord
-{
-    public string Name { get; set; } = string.Empty;
-    public string BaseClassId { get; set; } = ClassSpecCatalog.NormalizeBaseClass(null);
-    public string SpecId { get; set; } = ClassSpecCatalog.NormalizeSpecForClass(ClassSpecCatalog.NormalizeBaseClass(null), null);
-}
-
-internal sealed class CharacterSlotStoreDto
-{
-    public List<AccountSlotsDto> Accounts { get; set; } = new();
-}
-
-internal sealed class AccountSlotsDto
-{
-    public string AccountSubject { get; set; } = string.Empty;
-    public List<CharacterSlotRecord?> Slots { get; set; } = new();
 }

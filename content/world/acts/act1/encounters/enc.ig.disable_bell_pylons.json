@@ -1,0 +1,1 @@
+{ "id": "enc.ig.disable_bell_pylons", "zoneId": "zone.ig", "enemyIds": ["enemy.choir_wisp", "enemy.root_snare_husk"], "objectiveObjectIds": ["obj.bell_pylon"], "hazardIds": ["haz.bell_pulse"] }

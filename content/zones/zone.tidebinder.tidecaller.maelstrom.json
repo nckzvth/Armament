@@ -1,3 +1,10 @@
 {
-  "id": "zone.tidebinder.tidecaller.maelstrom"
+  "id": "zone.tidebinder.tidecaller.maelstrom",
+  "radius_milli": 2400,
+  "duration_ms": 6000,
+  "tick_interval_ms": 200,
+  "damage_per_pulse": 2,
+  "heal_per_pulse": 2,
+  "status_id": "status.tidebinder.tidecaller.soaked",
+  "status_duration_ms": 3000
 }

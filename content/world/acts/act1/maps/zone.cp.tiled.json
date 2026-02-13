@@ -1,0 +1,135 @@
+{
+  "compressionlevel": -1,
+  "height": 64,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Campaign",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "id": 100,
+          "name": "Perimeter Anchor",
+          "type": "encounter_anchor",
+          "x": 140,
+          "y": 120,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.perimeter_breach" }
+          ]
+        },
+        {
+          "id": 101,
+          "name": "Corpse Pile A",
+          "type": "campaign_object",
+          "x": 116,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.perimeter_breach" },
+            { "name": "objectDefId", "type": "string", "value": "obj.corpse_pile" }
+          ]
+        },
+        {
+          "id": 102,
+          "name": "Corpse Pile B",
+          "type": "campaign_object",
+          "x": 140,
+          "y": 88,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.perimeter_breach" },
+            { "name": "objectDefId", "type": "string", "value": "obj.corpse_pile" }
+          ]
+        },
+        {
+          "id": 103,
+          "name": "Corpse Pile C",
+          "type": "campaign_object",
+          "x": 164,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.perimeter_breach" },
+            { "name": "objectDefId", "type": "string", "value": "obj.corpse_pile" }
+          ]
+        },
+        {
+          "id": 110,
+          "name": "Stolen Supplies Anchor",
+          "type": "encounter_anchor",
+          "x": 232,
+          "y": 132,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.stolen_supplies" }
+          ]
+        },
+        {
+          "id": 111,
+          "name": "Supply Crate",
+          "type": "campaign_object",
+          "x": 232,
+          "y": 120,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.stolen_supplies" },
+            { "name": "objectDefId", "type": "string", "value": "obj.supply_crate" }
+          ]
+        },
+        {
+          "id": 120,
+          "name": "Disturbed Plots Anchor",
+          "type": "encounter_anchor",
+          "x": 316,
+          "y": 116,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.seal_disturbed_plots" }
+          ]
+        },
+        {
+          "id": 121,
+          "name": "Plot Corpse Pile A",
+          "type": "campaign_object",
+          "x": 296,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.seal_disturbed_plots" },
+            { "name": "objectDefId", "type": "string", "value": "obj.corpse_pile" }
+          ]
+        },
+        {
+          "id": 122,
+          "name": "Plot Corpse Pile B",
+          "type": "campaign_object",
+          "x": 336,
+          "y": 102,
+          "properties": [
+            { "name": "encounterId", "type": "string", "value": "enc.cp.seal_disturbed_plots" },
+            { "name": "objectDefId", "type": "string", "value": "obj.corpse_pile" }
+          ]
+        },
+        {
+          "id": 123,
+          "name": "Quartermaster",
+          "type": "campaign_npc",
+          "x": 88,
+          "y": 132,
+          "properties": [
+            { "name": "npcId", "type": "string", "value": "npc.quartermaster" }
+          ]
+        }
+      ]
+    }
+  ],
+  "nextlayerid": 2,
+  "nextobjectid": 124,
+  "orientation": "orthogonal",
+  "properties": [
+    { "name": "worldMilliPerPixel", "type": "float", "value": 100.0 },
+    { "name": "invertY", "type": "bool", "value": true }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.11.0",
+  "tileheight": 32,
+  "tilesets": [],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 64
+}

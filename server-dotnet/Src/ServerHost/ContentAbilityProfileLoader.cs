@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Linq;
 using Armament.GameServer;
 using Armament.SharedSim.Sim;
@@ -26,6 +27,8 @@ public static class ContentAbilityProfileLoader
 
             var abilities = LoadAbilities(abilitiesDir);
             var specs = LoadSpecs(specsDir);
+            var zones = LoadZones(Path.Combine(contentRoot, "zones"), rulesHz: simulationHz);
+            var links = LoadLinks(Path.Combine(contentRoot, "links"), rulesHz: simulationHz);
             if (specs.Count == 0)
             {
                 return BuildBuiltinOnly("no specs found in content/specs; using builtin profile only");
@@ -74,8 +77,8 @@ public static class ContentAbilityProfileLoader
             }
 
             var loadedIds = string.Join(", ", compiled.Keys.OrderBy(x => x, StringComparer.Ordinal));
-            var message = $"precompiled {compiled.Count} profiles; per-character spec resolution enabled; fallback '{fallbackSpecId}'; loaded=[{loadedIds}]";
-            return new LoadedAbilityProfiles(compiled, fallbackSpecId, message);
+            var message = $"precompiled {compiled.Count} profiles; zoneDefs={zones.Count}; linkDefs={links.Count}; per-character spec resolution enabled; fallback '{fallbackSpecId}'; loaded=[{loadedIds}]";
+            return new LoadedAbilityProfiles(compiled, zones, links, fallbackSpecId, message);
         }
         catch (Exception ex)
         {
@@ -95,6 +98,8 @@ public static class ContentAbilityProfileLoader
             {
                 [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1
             },
+            BuildDefaultZoneDefinitions(),
+            BuildDefaultLinkDefinitions(),
             SimAbilityProfiles.BuiltinV1.Id,
             message);
     }
@@ -162,6 +167,115 @@ public static class ContentAbilityProfileLoader
         return byId;
     }
 
+    private static Dictionary<string, SimZoneDefinition> LoadZones(string zonesDir, int rulesHz)
+    {
+        var byId = new Dictionary<string, SimZoneDefinition>(StringComparer.Ordinal);
+        foreach (var zone in SimZoneLinkDefaults.Zones)
+        {
+            byId[zone.Id] = zone;
+        }
+
+        if (!Directory.Exists(zonesDir))
+        {
+            return byId;
+        }
+
+        var options = CreateJsonOptions();
+        foreach (var file in Directory.EnumerateFiles(zonesDir, "*.json", SearchOption.AllDirectories))
+        {
+            var payload = File.ReadAllText(file);
+            var parsed = JsonSerializer.Deserialize<ZoneDefinitionContent>(payload, options);
+            if (parsed is null || string.IsNullOrWhiteSpace(parsed.Id))
+            {
+                continue;
+            }
+
+            var tick = MillisToTicks(parsed.TickIntervalMs, rulesHz, fallback: 12);
+            byId[parsed.Id] = new SimZoneDefinition
+            {
+                Id = parsed.Id,
+                RadiusMilli = parsed.RadiusMilli > 0 ? parsed.RadiusMilli : 1500,
+                DurationTicks = MillisToTicks(parsed.DurationMs, rulesHz, fallback: 300),
+                TickIntervalTicks = tick,
+                DamagePerPulse = Math.Max(0, parsed.DamagePerPulse),
+                HealPerPulse = Math.Max(0, parsed.HealPerPulse),
+                StatusId = parsed.StatusId,
+                StatusDurationTicks = MillisToTicks(parsed.StatusDurationMs, rulesHz, fallback: tick)
+            };
+        }
+
+        return byId;
+    }
+
+    private static Dictionary<string, SimLinkDefinition> LoadLinks(string linksDir, int rulesHz)
+    {
+        var byId = new Dictionary<string, SimLinkDefinition>(StringComparer.Ordinal);
+        foreach (var link in SimZoneLinkDefaults.Links)
+        {
+            byId[link.Id] = link;
+        }
+
+        if (!Directory.Exists(linksDir))
+        {
+            return byId;
+        }
+
+        var options = CreateJsonOptions();
+        foreach (var file in Directory.EnumerateFiles(linksDir, "*.json", SearchOption.AllDirectories))
+        {
+            var payload = File.ReadAllText(file);
+            var parsed = JsonSerializer.Deserialize<LinkDefinitionContent>(payload, options);
+            if (parsed is null || string.IsNullOrWhiteSpace(parsed.Id))
+            {
+                continue;
+            }
+
+            byId[parsed.Id] = new SimLinkDefinition
+            {
+                Id = parsed.Id,
+                DurationTicks = MillisToTicks(parsed.DurationMs, rulesHz, fallback: 300),
+                MaxDistanceMilli = parsed.MaxDistanceMilli > 0 ? parsed.MaxDistanceMilli : 6000,
+                PullMilliPerTick = Math.Max(0, parsed.PullMilliPerTick),
+                DamagePerTick = Math.Max(0, parsed.DamagePerTick),
+                MaxActiveLinks = parsed.MaxActiveLinks > 0 ? parsed.MaxActiveLinks : 1
+            };
+        }
+
+        return byId;
+    }
+
+    private static int MillisToTicks(int millis, int simulationHz, int fallback)
+    {
+        if (millis <= 0 || simulationHz <= 0)
+        {
+            return fallback;
+        }
+
+        return Math.Max(1, (int)Math.Ceiling(millis / (1000m / simulationHz)));
+    }
+
+    private static Dictionary<string, SimZoneDefinition> BuildDefaultZoneDefinitions()
+    {
+        var byId = new Dictionary<string, SimZoneDefinition>(StringComparer.Ordinal);
+        foreach (var zone in SimZoneLinkDefaults.Zones)
+        {
+            byId[zone.Id] = zone;
+        }
+
+        return byId;
+    }
+
+    private static Dictionary<string, SimLinkDefinition> BuildDefaultLinkDefinitions()
+    {
+        var byId = new Dictionary<string, SimLinkDefinition>(StringComparer.Ordinal);
+        foreach (var link in SimZoneLinkDefaults.Links)
+        {
+            byId[link.Id] = link;
+        }
+
+        return byId;
+    }
+
     private static JsonSerializerOptions CreateJsonOptions()
     {
         return new JsonSerializerOptions
@@ -170,5 +284,41 @@ public static class ContentAbilityProfileLoader
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true
         };
+    }
+
+    private sealed class ZoneDefinitionContent
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+        [JsonPropertyName("radius_milli")]
+        public int RadiusMilli { get; set; }
+        [JsonPropertyName("duration_ms")]
+        public int DurationMs { get; set; }
+        [JsonPropertyName("tick_interval_ms")]
+        public int TickIntervalMs { get; set; }
+        [JsonPropertyName("damage_per_pulse")]
+        public int DamagePerPulse { get; set; }
+        [JsonPropertyName("heal_per_pulse")]
+        public int HealPerPulse { get; set; }
+        [JsonPropertyName("status_id")]
+        public string? StatusId { get; set; }
+        [JsonPropertyName("status_duration_ms")]
+        public int StatusDurationMs { get; set; }
+    }
+
+    private sealed class LinkDefinitionContent
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+        [JsonPropertyName("duration_ms")]
+        public int DurationMs { get; set; }
+        [JsonPropertyName("max_distance_milli")]
+        public int MaxDistanceMilli { get; set; }
+        [JsonPropertyName("pull_milli_per_tick")]
+        public int PullMilliPerTick { get; set; }
+        [JsonPropertyName("damage_per_tick")]
+        public int DamagePerTick { get; set; }
+        [JsonPropertyName("max_active_links")]
+        public int MaxActiveLinks { get; set; }
     }
 }

@@ -4,8 +4,11 @@ using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Armament.GameServer.Campaign;
+using Armament.GameServer.Inventory;
 using Armament.GameServer.Persistence;
 using Armament.Net;
+using Armament.SharedSim.Inventory;
 using Armament.SharedSim.Protocol;
 using Armament.SharedSim.Sim;
 
@@ -21,6 +24,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
     private readonly ILootPersistenceSink? _lootPersistenceSink;
     private readonly ICharacterProfileService? _characterProfileService;
     private readonly LoadedAbilityProfiles _abilityProfiles;
+    private readonly AuthoritativeInventoryService _inventoryService;
+    private readonly CampPerimeterRuntime? _campPerimeterRuntime;
+    private readonly CampaignWorldDefinition? _campaignWorldDefinition;
     private readonly Dictionary<string, PendingJoinRequest> _pendingJoinRequests = new();
     private readonly uint _connectionTimeoutTicks;
 
@@ -35,7 +41,9 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         int snapshotHz = 10,
         ILootPersistenceSink? lootPersistenceSink = null,
         ICharacterProfileService? characterProfileService = null,
-        LoadedAbilityProfiles? abilityProfiles = null)
+        LoadedAbilityProfiles? abilityProfiles = null,
+        IReadOnlyDictionary<string, CampaignEncounterDefinition>? campPerimeterDefinitions = null,
+        CampaignWorldDefinition? campaignWorldDefinition = null)
     {
         if (simulationHz <= 0)
         {
@@ -53,9 +61,22 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             {
                 [SimAbilityProfiles.BuiltinV1.Id] = SimAbilityProfiles.BuiltinV1
             },
+            BuildDefaultZoneDefinitions(),
+            BuildDefaultLinkDefinitions(),
             SimAbilityProfiles.BuiltinV1.Id,
             "builtin profile only");
-        _overworldZone = new OverworldZone(simulationHz, _abilityProfiles.BySpecId, _abilityProfiles.FallbackSpecId);
+        _campaignWorldDefinition = campaignWorldDefinition;
+        _overworldZone = new OverworldZone(
+            simulationHz,
+            _abilityProfiles.BySpecId,
+            _abilityProfiles.ZoneDefinitions,
+            _abilityProfiles.LinkDefinitions,
+            _abilityProfiles.FallbackSpecId,
+            campaignWorldDefinition);
+        _inventoryService = new AuthoritativeInventoryService(BuildInventoryCatalog(campPerimeterDefinitions));
+        _campPerimeterRuntime = campPerimeterDefinitions is { Count: > 0 }
+            ? new CampPerimeterRuntime(campPerimeterDefinitions, campaignWorldDefinition?.Quests)
+            : null;
         _lootPersistenceSink = lootPersistenceSink;
         _characterProfileService = characterProfileService;
         SimulationHz = simulationHz;
@@ -90,6 +111,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
                 DrainNetworkInbox();
                 EvictInactiveConnections();
                 _overworldZone.Step();
+                ProcessOverworldCampaignRuntime();
                 EnqueueLootPersistence(
                     _overworldZone.ZoneKind,
                     _overworldZone.InstanceId,
@@ -319,7 +341,10 @@ public sealed class AuthoritativeServer : IAsyncDisposable
                             loadedProfile.Currency,
                             loadedProfile.Attributes,
                             state.BaseClassId,
-                            state.SpecId);
+                            state.SpecId,
+                            loadedProfile.InventoryJson,
+                            loadedProfile.QuestProgressJson);
+                        state.LastKnownProfile = correctedProfile;
 
                         _ = _characterProfileService.TryEnqueueSave(new CharacterProfileSaveRequest(
                             state.CharacterId,
@@ -331,6 +356,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
                 {
                     state.BaseClassId = loadedProfile.BaseClassId;
                     state.SpecId = loadedProfile.SpecId;
+                    state.LastKnownProfile = loadedProfile;
                 }
             }
 
@@ -355,6 +381,23 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         if (profileToApply is not null)
         {
             _ = _overworldZone.TryApplyPersistentProfile(state.ClientId, profileToApply);
+            _inventoryService.UpsertFromJson(state.CharacterId, profileToApply.InventoryJson);
+            state.LastKnownProfile = profileToApply;
+        }
+        else
+        {
+            _inventoryService.GetOrCreate(state.CharacterId);
+            state.LastKnownProfile = state.LastKnownProfile with
+            {
+                BaseClassId = state.BaseClassId,
+                SpecId = state.SpecId,
+                InventoryJson = _inventoryService.ExportJson(state.CharacterId)
+            };
+        }
+
+        if (_campPerimeterRuntime is not null && state.CharacterId != Guid.Empty)
+        {
+            _campPerimeterRuntime.RestoreCharacterState(state.CharacterId, state.LastKnownProfile.QuestProgressJson);
         }
 
         state.Joined = true;
@@ -395,7 +438,13 @@ public sealed class AuthoritativeServer : IAsyncDisposable
 
             EnqueueProfileSave(state, transfer);
             var instanceId = _nextDungeonInstanceId++;
-            var dungeon = new DungeonInstance(instanceId, SimulationHz, _abilityProfiles.BySpecId, _abilityProfiles.FallbackSpecId);
+            var dungeon = new DungeonInstance(
+                instanceId,
+                SimulationHz,
+                _abilityProfiles.BySpecId,
+                _abilityProfiles.ZoneDefinitions,
+                _abilityProfiles.LinkDefinitions,
+                _abilityProfiles.FallbackSpecId);
             _dungeonInstances[instanceId] = dungeon;
 
             state.EntityId = dungeon.JoinTransferred(state.ClientId, transfer);
@@ -429,7 +478,7 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         {
             _overworldZone.ApplyInput(state.ClientId, input.MoveX, input.MoveY, input.ActionFlags);
 
-            if ((input.ActionFlags & InputActionFlags.InteractPortal) != 0)
+            if ((input.ActionFlags & (InputActionFlags.InteractPortal | InputActionFlags.Interact)) != 0)
             {
                 HandleJoinDungeonRequest(endpointKey, endpoint);
             }
@@ -460,7 +509,65 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             }
 
             snapshot.LastProcessedInputSequence = connection.LastProcessedInputSequence;
+            if (_campPerimeterRuntime is not null && connection.CharacterId != Guid.Empty)
+            {
+                var objectives = _campPerimeterRuntime.BuildObjectiveSnapshots(connection.CharacterId);
+                for (var i = 0; i < objectives.Count; i++)
+                {
+                    var objective = objectives[i];
+                    snapshot.Objectives.Add(new WorldObjectiveSnapshot
+                    {
+                        ObjectiveId = objective.ObjectiveId,
+                        EncounterId = objective.EncounterId,
+                        Kind = objective.Kind,
+                        TargetId = objective.TargetId,
+                        Current = (ushort)Math.Clamp(objective.Current, 0, ushort.MaxValue),
+                        Required = (ushort)Math.Clamp(objective.Required, 0, ushort.MaxValue),
+                        State = (byte)objective.State
+                    });
+                }
+            }
             _transport.Send(connection.Endpoint, ProtocolCodec.Encode(snapshot));
+        }
+    }
+
+    private void ProcessOverworldCampaignRuntime()
+    {
+        if (_campPerimeterRuntime is null)
+        {
+            return;
+        }
+
+        var completions = _campPerimeterRuntime.Consume(
+            _overworldZone.LastSimEvents,
+            ResolveCharacterIdByPlayerEntity,
+            _overworldZone.TryResolveObjectDefIdByRuntimeObjectId,
+            _overworldZone.TryResolveNpcIdByRuntimeNpcId);
+
+        for (var i = 0; i < completions.Count; i++)
+        {
+            var completion = completions[i];
+            if (!string.IsNullOrWhiteSpace(completion.RewardItemCode))
+            {
+                var result = _inventoryService.GrantItem(completion.CharacterId, completion.RewardItemCode!, completion.RewardItemQuantity);
+                Console.WriteLine(
+                    $"[Server] Campaign completion: char={completion.CharacterId} encounter={completion.EncounterId} reward={completion.RewardItemCode}x{completion.RewardItemQuantity} inventory={(result.Success ? "ok" : result.Message)}");
+            }
+            else
+            {
+                Console.WriteLine($"[Server] Campaign completion: char={completion.CharacterId} encounter={completion.EncounterId} (no item reward)");
+            }
+
+            TryPersistCharacterProfile(completion.CharacterId);
+        }
+
+        var activeEncounterIds = _campPerimeterRuntime.BuildActiveEncounterIds(BuildOnlineCharacterIds());
+        _overworldZone.SyncActivatedEncounters(activeEncounterIds);
+
+        var dirtyCharacterIds = _campPerimeterRuntime.ConsumeDirtyCharacterIds();
+        foreach (var characterId in dirtyCharacterIds)
+        {
+            TryPersistCharacterProfile(characterId);
         }
     }
 
@@ -519,6 +626,83 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         return false;
     }
 
+    private bool TryGetConnectionByCharacterId(Guid characterId, out ConnectionState state)
+    {
+        foreach (var candidate in _connectionsByEndpoint.Values)
+        {
+            if (candidate.CharacterId == characterId)
+            {
+                state = candidate;
+                return true;
+            }
+        }
+
+        state = default!;
+        return false;
+    }
+
+    private Guid? ResolveCharacterIdByPlayerEntity(uint playerEntityId)
+    {
+        if (!_overworldZone.TryResolveClientIdByEntity(playerEntityId, out var clientId))
+        {
+            return null;
+        }
+
+        if (!TryGetConnectionByClientId(clientId, out var connection) || connection.CharacterId == Guid.Empty)
+        {
+            return null;
+        }
+
+        return connection.CharacterId;
+    }
+
+    private IReadOnlyCollection<Guid> BuildOnlineCharacterIds()
+    {
+        var ids = new HashSet<Guid>();
+        foreach (var connection in _connectionsByEndpoint.Values)
+        {
+            if (!connection.Joined || connection.CharacterId == Guid.Empty)
+            {
+                continue;
+            }
+
+            ids.Add(connection.CharacterId);
+        }
+
+        return ids;
+    }
+
+    private void TryPersistCharacterProfile(Guid characterId)
+    {
+        if (_characterProfileService is null || characterId == Guid.Empty)
+        {
+            return;
+        }
+
+        if (!TryGetConnectionByCharacterId(characterId, out var connection))
+        {
+            return;
+        }
+
+        var inventoryJson = _inventoryService.ExportJson(characterId);
+        var questProgressJson = _campPerimeterRuntime?.ExportCharacterState(characterId) ?? connection.LastKnownProfile.QuestProgressJson;
+        var profile = new CharacterProfileData(
+            Level: connection.LastKnownProfile.Level,
+            Experience: connection.LastKnownProfile.Experience,
+            Currency: connection.LastKnownProfile.Currency,
+            Attributes: connection.LastKnownProfile.Attributes,
+            BaseClassId: connection.BaseClassId,
+            SpecId: connection.SpecId,
+            InventoryJson: inventoryJson,
+            QuestProgressJson: questProgressJson);
+
+        connection.LastKnownProfile = profile;
+        _ = _characterProfileService.TryEnqueueSave(new CharacterProfileSaveRequest(
+            CharacterId: characterId,
+            CharacterName: connection.CharacterName,
+            Profile: profile));
+    }
+
     private void EnqueueProfileSave(ConnectionState state, in PlayerTransferState transfer)
     {
         if (_characterProfileService is null || state.CharacterId == Guid.Empty)
@@ -532,7 +716,11 @@ public sealed class AuthoritativeServer : IAsyncDisposable
             Currency: transfer.Currency,
             Attributes: transfer.Attributes,
             BaseClassId: state.BaseClassId,
-            SpecId: state.SpecId);
+            SpecId: state.SpecId,
+            InventoryJson: _inventoryService.ExportJson(state.CharacterId),
+            QuestProgressJson: _campPerimeterRuntime?.ExportCharacterState(state.CharacterId) ?? state.LastKnownProfile.QuestProgressJson);
+
+        state.LastKnownProfile = profile;
 
         _ = _characterProfileService.TryEnqueueSave(new CharacterProfileSaveRequest(
             CharacterId: state.CharacterId,
@@ -641,6 +829,60 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         return null;
     }
 
+    private static Dictionary<string, SimZoneDefinition> BuildDefaultZoneDefinitions()
+    {
+        var byId = new Dictionary<string, SimZoneDefinition>(StringComparer.Ordinal);
+        foreach (var zone in SimZoneLinkDefaults.Zones)
+        {
+            byId[zone.Id] = zone;
+        }
+
+        return byId;
+    }
+
+    private static Dictionary<string, SimLinkDefinition> BuildDefaultLinkDefinitions()
+    {
+        var byId = new Dictionary<string, SimLinkDefinition>(StringComparer.Ordinal);
+        foreach (var link in SimZoneLinkDefaults.Links)
+        {
+            byId[link.Id] = link;
+        }
+
+        return byId;
+    }
+
+    private static IInventoryItemCatalog BuildInventoryCatalog(IReadOnlyDictionary<string, CampaignEncounterDefinition>? definitions)
+    {
+        var byCode = new Dictionary<string, InventoryItemDefinition>(StringComparer.Ordinal)
+        {
+            ["item.quest.camp_supply"] = new InventoryItemDefinition { ItemCode = "item.quest.camp_supply", MaxStack = 99 },
+            ["item.quest.supply_cache"] = new InventoryItemDefinition { ItemCode = "item.quest.supply_cache", MaxStack = 99 },
+            ["item.quest.plot_seal"] = new InventoryItemDefinition { ItemCode = "item.quest.plot_seal", MaxStack = 99 }
+        };
+
+        if (definitions is not null)
+        {
+            foreach (var def in definitions.Values)
+            {
+                if (string.IsNullOrWhiteSpace(def.RewardItemCode))
+                {
+                    continue;
+                }
+
+                if (!byCode.ContainsKey(def.RewardItemCode))
+                {
+                    byCode[def.RewardItemCode] = new InventoryItemDefinition
+                    {
+                        ItemCode = def.RewardItemCode,
+                        MaxStack = 99
+                    };
+                }
+            }
+        }
+
+        return new DictionaryInventoryItemCatalog(byCode);
+    }
+
     public async ValueTask DisposeAsync()
     {
         _cts.Cancel();
@@ -670,6 +912,14 @@ public sealed class AuthoritativeServer : IAsyncDisposable
         public int CharacterSlot { get; set; }
         public string BaseClassId { get; set; } = "bastion";
         public string SpecId { get; set; } = "spec.bastion.bulwark";
+        public CharacterProfileData LastKnownProfile { get; set; } = new(
+            Level: 1,
+            Experience: 0,
+            Currency: 0,
+            Attributes: CharacterAttributes.Default,
+            BaseClassId: "bastion",
+            SpecId: "spec.bastion.bulwark",
+            InventoryJson: "{}");
         public bool Joined { get; set; }
         public uint EntityId { get; set; }
         public uint LastProcessedInputSequence { get; set; }
